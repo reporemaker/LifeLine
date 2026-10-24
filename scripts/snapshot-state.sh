@@ -105,6 +105,8 @@ if [ -f VENDORED.md ]; then
   while IFS="$TAB" read -r name eco pkg ver lic; do
     e=$(awk -F'|' -v n="$name" '$2 == n' "$TMP/entries" | head -1)
     latest=$(printf '%s' "$e" | cut -d'|' -f4); local_state=$(printf '%s' "$e" | cut -d'|' -f7)
+    # Offline the upstream version was not asked for ("-"), not asked and unanswered ("unknown").
+    [ "$NET" -eq 1 ] || latest="-"
     shown=$pkg; [ "$pkg" = none ] && shown=$name
     # Row key for the join: the ledger entry name (unique), carried in the package
     # column as "shown" plus the entry name when they differ.
