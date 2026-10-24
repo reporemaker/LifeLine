@@ -148,7 +148,10 @@ they lead the report summary. LOW×LOW items with unhealthy upstream feed Step 3
 | api.stripe.com | src/billing.ts, .env.example (STRIPE_KEY) | yes |
 ```
 
-"If it disappears", backups, single points of failure: sensitive report only.
+"If it disappears", backups, single points of failure: sensitive report only. Name a
+credential only the way a committed file already names it (`.env.example`, a config
+key); what a secret unlocks, and secrets known only from outside the repo (a deploy
+dashboard, the user's description) go to the sensitive report.
 
 ## 6. Recommendations
 
