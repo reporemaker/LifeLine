@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 210" width="800" height="210" role="img" aria-labelledby="t d">
+  <title id="t">A slow handover in LifeLine's timeline</title>
+  <desc id="d">Maintainers of an example package over five years: alice, then alice and bob, then bob, then bob and gina, then gina. Each year is a small change; compared with the first run it is a full handover.</desc>
+  <style>
+    .bg { fill: #ffffff; }
+    .ink { fill: #1f2328; }
+    .mute { fill: #656d76; }
+    .rail { stroke: #d0d7de; }
+    .dot { fill: #8c959f; }
+    .end { fill: #cf222e; }
+    .endt { fill: #cf222e; }
+    text { font-family: ui-sans-serif, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; }
+      .ink { fill: #e6edf3; }
+      .mute { fill: #8d96a0; }
+      .rail { stroke: #30363d; }
+      .dot { fill: #6e7681; }
+      .end { fill: #f85149; }
+      .endt { fill: #f85149; }
+    }
+  </style>
+
+  <rect class="bg" width="800" height="210" rx="12"/>
+  <text class="mute" x="60" y="44" font-size="14">maintainers of one package, one run a year</text>
+
+  <path class="rail" d="M100 100 H 700" stroke-width="2"/>
+  <g text-anchor="middle">
+    <circle class="dot" cx="100" cy="100" r="7"/>
+    <text class="mute" x="100" y="80" font-size="13">2022</text>
+    <text class="ink" x="100" y="132" font-size="15" font-weight="600">alice</text>
+
+    <circle class="dot" cx="250" cy="100" r="7"/>
+    <text class="mute" x="250" y="80" font-size="13">2023</text>
+    <text class="ink" x="250" y="132" font-size="15" font-weight="600">alice, bob</text>
+
+    <circle class="dot" cx="400" cy="100" r="7"/>
+    <text class="mute" x="400" y="80" font-size="13">2024</text>
+    <text class="ink" x="400" y="132" font-size="15" font-weight="600">bob</text>
+
+    <circle class="dot" cx="550" cy="100" r="7"/>
+    <text class="mute" x="550" y="80" font-size="13">2025</text>
+    <text class="ink" x="550" y="132" font-size="15" font-weight="600">bob, gina</text>
+
+    <circle class="end" cx="700" cy="100" r="9"/>
+    <text class="mute" x="700" y="80" font-size="13">2026</text>
+    <text class="endt" x="700" y="132" font-size="15" font-weight="700">gina</text>
+  </g>
+
+  <text class="mute" x="400" y="180" font-size="14" text-anchor="middle">Every year a small step. Against the first run: a full handover.</text>
+</svg>

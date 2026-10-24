@@ -27,6 +27,7 @@ built-in for it, deleting the dependency beats copying it.
 | License | Verdict |
 |---|---|
 | MIT, BSD, ISC, Apache-2.0, Zlib, Unlicense/CC0, WTFPL, BlueOak-1.0.0 | ✅ Vendorable. Attribution required: keep the original license header/file with the copied code. Apache-2.0 additionally: keep NOTICE if present. |
+| OFL-1.1 (fonts) | ✅ Vendorable, also as part of a website or app. Keep the OFL text next to the font files; a modified font must not use the Reserved Font Name. |
 | MPL-2.0, EPL | ⚠️ File-level copyleft — vendorable but modified files must stay under the original license. Flag clearly; recommend only if the user understands. |
 | GPL-2.0/3.0, AGPL, SSPL, EUPL | ❌ Do NOT recommend vendoring. Copying this code into the project can impose the license on the whole project. State this risk explicitly in the report. |
 | No license / unknown | ❌ Do NOT recommend. No license = no right to copy. Suggest contacting the author or finding an alternative. |

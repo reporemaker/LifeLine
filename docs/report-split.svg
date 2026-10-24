@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" width="800" height="300" role="img" aria-labelledby="t d">
+  <title id="t">LifeLine reports: public and private</title>
+  <desc id="d">The public report goes to the repository. The private report never enters git; it goes to the customer only.</desc>
+  <style>
+    .bg { fill: #ffffff; }
+    .ink { fill: #1f2328; }
+    .mute { fill: #656d76; }
+    .box { fill: none; stroke: #d0d7de; }
+    .pub { stroke: #1a7f37; }
+    .pubt { fill: #1a7f37; }
+    .prv { stroke: #cf222e; }
+    .prvt { fill: #cf222e; }
+    .line { stroke: #8c959f; fill: none; }
+    .head { fill: #8c959f; }
+    .no { stroke: #cf222e; }
+    text { font-family: ui-sans-serif, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; }
+      .ink { fill: #e6edf3; }
+      .mute { fill: #8d96a0; }
+      .box { stroke: #30363d; }
+      .pub { stroke: #3fb950; }
+      .pubt { fill: #3fb950; }
+      .prv { stroke: #f85149; }
+      .prvt { fill: #f85149; }
+      .line { stroke: #6e7681; }
+      .head { fill: #6e7681; }
+      .no { stroke: #f85149; }
+    }
+  </style>
+
+  <rect class="bg" width="800" height="300" rx="12"/>
+
+  <!-- the two parts -->
+  <rect class="box pub" x="60" y="40" width="300" height="110" rx="12" stroke-width="2"/>
+  <text class="pubt" x="210" y="82" font-size="20" font-weight="700" text-anchor="middle">Public</text>
+  <text class="mute" x="210" y="108" font-size="14" text-anchor="middle">dependencies, history,</text>
+  <text class="mute" x="210" y="128" font-size="14" text-anchor="middle">fixed vulnerabilities</text>
+
+  <rect class="box prv" x="440" y="40" width="300" height="110" rx="12" stroke-width="2"/>
+  <text class="prvt" x="590" y="82" font-size="20" font-weight="700" text-anchor="middle">Private</text>
+  <text class="mute" x="590" y="108" font-size="14" text-anchor="middle">open vulnerabilities,</text>
+  <text class="mute" x="590" y="128" font-size="14" text-anchor="middle">other weak points</text>
+
+  <!-- where each part goes -->
+  <path class="line" d="M210 150 V 208" stroke-width="2"/>
+  <path class="head" d="M204 204 L210 216 L216 204 Z"/>
+  <text class="ink" x="210" y="246" font-size="16" font-weight="600" text-anchor="middle">repository</text>
+
+  <path class="line" d="M590 150 V 208" stroke-width="2"/>
+  <path class="head" d="M584 204 L590 216 L596 204 Z"/>
+  <text class="ink" x="590" y="246" font-size="16" font-weight="600" text-anchor="middle">customer only</text>
+  <text class="mute" x="590" y="268" font-size="13" text-anchor="middle">USB · encrypted e-mail · by hand</text>
+
+  <!-- private never goes to the repository -->
+  <path class="line" d="M520 240 H 290" stroke-width="2" stroke-dasharray="6 6"/>
+  <g class="no" stroke-width="3" stroke-linecap="round"><path d="M395 230 L415 250"/><path d="M415 230 L395 250"/></g>
+</svg>

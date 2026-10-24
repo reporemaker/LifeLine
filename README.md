@@ -72,6 +72,8 @@ Claude also picks the skill up on its own when you ask things like *"list this p
 
 Everything goes into a `LifeLine_Report/` folder at the project root. The folder keeps the history, and it is split in two:
 
+<p align="center"><img src="docs/report-split.svg" alt="Public part goes to the repository; private part goes to the customer only, never to the repository" width="640"></p>
+
 ```
 LifeLine_Report/
 ├── .gitignore                    "private/" - written by LifeLine
@@ -85,9 +87,24 @@ LifeLine_Report/
     └── …                         its baseline, changes, timeline and snapshots
 ```
 
-**Public part.** The latest report is always complete. Each later run also writes a short change report: what needs attention, what changed since the previous run, what is different from the first report, and changes that build up over many runs. A library maintained by *A* four years ago and by *G* today shows up as every step in between, not as one surprise. Vulnerabilities that have been fixed are listed with the dates they were found and closed. Commit this part and the history travels with the repo.
+**Public part.** The latest report is always complete. Each later run also writes a short change report: what needs attention, what changed since the previous run, what is different from the first report, and changes that build up over many runs. A library maintained by *A* four years ago and by *G* today shows up as every step in between, not as one surprise:
+
+<p align="center"><img src="docs/handover-timeline.svg" alt="Maintainers of one package over five years: alice, alice and bob, bob, bob and gina, gina" width="640"></p>
+
+Vulnerabilities that have been fixed are listed with the dates they were found and closed. Commit this part and the history travels with the repo.
 
 **Private part.** Open vulnerabilities, what breaks when a service disappears, how backups and secrets are handled, which tools run unpinned code. None of it is a leak on its own; together it reads like a map of where an attack would hurt most. So it stays in `private/`, which LifeLine keeps out of git, and the public report says nothing about it, not even how many items it holds. It goes to the customer only, outside GitHub: on a USB stick, by encrypted e-mail, or by hand. The public report ends with the date and a sha256 hash of it, so the customer can check that the file they received is the one from that run.
+
+**A note for public repositories.** If your lock file is public, anyone can run `npm audit` on it and find your open dependency advisories without the private report. The private part does not hide those; fixing them does. What it does keep private is what no file in the repo reveals (backups, secrets, access, deploy paths) and the ready-made list of where to strike first.
+
+## Example output
+
+[ChessRun](https://github.com/reporemaker/ChessRun) is an open-source game whose `LifeLine_Report/` folder is public, as a real example: **[ChessRun/LifeLine_Report](https://github.com/reporemaker/ChessRun/tree/main/LifeLine_Report)**. It holds the full report with the 22 vulnerabilities found and fixed on the first day, the baseline, a change report, the timeline and the snapshots.
+
+> [!WARNING]
+> **Never put your `private/` folder on GitHub**, not in a public repository and not in a private one. It goes to the customer only, outside GitHub: USB stick, encrypted e-mail, or by hand.
+>
+> ChessRun contains one file under `private/`, `sensitive-report.EXAMPLE.md`, committed on purpose to show the format. **All of its data is fake.** ChessRun's real sensitive report has never been in the repository.
 
 ## Notes
 
