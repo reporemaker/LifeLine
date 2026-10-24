@@ -21,7 +21,9 @@ ROOTABS=$(pwd -P)
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/lifeline.XXXXXX") || exit 1
 trap 'rm -rf "$TMP"' EXIT
 
-lines_of() { [ -s "$1" ] && xargs wc -l < "$1" 2>/dev/null | awk 'NF==1{t+=$1} NF==2&&$2!="total"{t+=$1} END{print t+0}' || echo 0; }
+# One path per line in; paths may contain spaces (NUL-separated for xargs). The sum of
+# per-file "wc -l" equals "wc -l" of the concatenation: both count newline characters.
+lines_of() { [ -s "$1" ] && tr '\n' '\0' < "$1" | xargs -0 cat 2>/dev/null | wc -l | tr -d ' ' || echo 0; }
 
 # --- npm ---------------------------------------------------------------------
 # Dependency names of an installed package (node if present, awk otherwise).
