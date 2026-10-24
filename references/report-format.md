@@ -1,7 +1,19 @@
 # Report Format Reference
 
-The report is written to `docs/dependency-report.md`. Structure and field names are
-stable across languages; prose follows the user's language. Sections in order:
+Every file lifeline writes goes into one folder at the project root, `LifeLine_Report/`
+(created when missing). File names inside are fixed and English:
+
+| File | When |
+|---|---|
+| `LifeLine_Report/dependency-report.md` | every run |
+| `LifeLine_Report/sbom.cdx.json` | only if the user picks it after the report |
+| `LifeLine_Report/dependency-report.json` | only if the user picks it after the report |
+
+`VENDORED.md` is the exception: it lives at the project root, next to the code it
+describes, because it is a ledger the team maintains, not a generated report.
+
+Structure and field names are stable across languages; prose follows the user's
+language. Sections in order:
 
 ## 1. Header
 
@@ -22,16 +34,22 @@ Ecosystems: <list> · Previous report: <date | none>
 One table for packages, one for toolchain, one for assets:
 
 ```markdown
-| Package | Version | Direct? | Used? | License | Risk signals | Criticality |
-|---|---|---|---|---|---|---|
-| express | 4.19.2 | direct | yes (7 modules) | MIT | — | HIGH |
-| left-pad | 1.3.0 | direct | yes (1 module, 1 fn) | MIT | unmaintained | LOW |
+| Package | Version | Direct? | Used? | License | Last release | Risk signals | Criticality |
+|---|---|---|---|---|---|---|---|
+| express | 4.19.2 | direct | yes (7 modules) | MIT | 2025-03 | — | HIGH |
+| left-pad | 1.3.0 | direct | yes (1 module, 1 fn) | WTFPL | 2018-04 | deprecated · archived | LOW |
 ```
+
+`Last release` and the health part of `Risk signals` come from `upstream-health.sh`;
+`unknown` when it could not be checked (say why in Limits).
 
 Findings called out below the tables, each with severity:
 - 🔴 phantom dependency (imported, not declared) · copyleft license · known CVE ·
-  unpinned CI action / `latest` base image · CDN script without SRI · `curl | bash` in CI
-- 🟡 declared-but-unused · stale upstream (>2y) · unknown license · missing lock file
+  unpinned CI action / `latest` base image · CDN script without SRI · `curl | bash` in CI ·
+  vendored code changed without a `Modifications` note
+- 🟡 declared-but-unused · stale upstream (>2y) · deprecated · archived repo · single
+  maintainer · install-time script (`preinstall`/`install`/`postinstall`) · unknown
+  license · missing lock file · built-in replacement available
 - ⚪ informational
 
 ## 4. Criticality rubric
@@ -57,14 +75,25 @@ they lead the report summary. LOW×LOW items with unhealthy upstream feed Step 3
 
 ## 6. Recommendations
 
-Per candidate: verdict table (vendor / pin / fork / rewrite), license gate result,
-cost estimate, the security trade-off sentence (see vendoring.md). Explicitly labeled
-as recommendations awaiting a human decision.
+Per candidate: verdict table (**replace with built-in** / vendor / pin / fork / rewrite),
+license gate result, measured cost, the security trade-off sentence (see vendoring.md).
+Explicitly labeled as recommendations awaiting a human decision.
+
+```markdown
+| Package | Verdict | Built-in | Total lines | Needed (reachable) | Used API | Pulls in | License |
+|---|---|---|---|---|---|---|---|
+| left-pad | replace with built-in | `padStart` (ES2017) | 210 | 52 | default fn, 1 file | 0 | WTFPL ✅ |
+| rimraf | replace with built-in | `fs.rm` (Node 14.14) | 2158 | 999 | `rimraf`, 1 file | 40 | ISC ✅ |
+```
+
+`Total lines`, `Needed`, `Pulls in` from `measure-package.sh`; `Used API` from `used-api.sh`.
 
 ## 7. Vendor Tracking
 
 Ledger status from Step 4: per entry — recorded version, latest upstream, OSV result,
-status. If offline: **"Vendor check NOT performed (no network). Last successful check:
+status, local integrity (`unchanged` / `modified` / `missing` / `untracked`). For every
+`update-available` / `cve-warning` entry: the patch proposal built from
+`upstream-diff.sh` (what changed upstream, how it lands on our copy). If offline: **"Vendor check NOT performed (no network). Last successful check:
 <date>."** as a visible warning block, never a footnote.
 
 ## 8. Changes since last report (only when a previous report exists)
@@ -84,7 +113,7 @@ import-name mappings that were guessed.
 
 Generated only when the user picks them after seeing the MD report.
 
-## CycloneDX SBOM — `docs/sbom.cdx.json`
+## CycloneDX SBOM — `LifeLine_Report/sbom.cdx.json`
 
 Minimal valid shape (CycloneDX 1.5, JSON):
 
@@ -118,7 +147,7 @@ Minimal valid shape (CycloneDX 1.5, JSON):
   `"properties": [{ "name": "lifeline:vendored", "value": "true" }]`.
 - `scope`: `"required"` for runtime deps, `"optional"` for dev/build.
 
-## JSON export — `docs/dependency-report.json`
+## JSON export — `LifeLine_Report/dependency-report.json`
 
 ```json
 {
@@ -132,7 +161,7 @@ Minimal valid shape (CycloneDX 1.5, JSON):
   "toolchain": [ { "kind": "ci-action|docker-image|build-tool", "name": "", "ref": "", "pinned": true } ],
   "assets": [ { "url": "", "kind": "cdn-script|font|model|dataset", "sri": false } ],
   "services": [ { "host": "", "referencedIn": [], "credential": "", "impact": "" } ],
-  "vendored": [ { "name": "", "version": "", "status": "", "lastChecked": "" } ],
+  "vendored": [ { "name": "", "version": "", "status": "", "local": "", "lastChecked": "" } ],
   "findings": [ { "severity": "high|medium|info", "message": "" } ],
   "limits": [ "" ]
 }

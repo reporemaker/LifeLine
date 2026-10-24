@@ -5,13 +5,16 @@ description: >-
   open-source packages (declared and actually used), toolchain dependencies (CI actions,
   Docker base images, build tools), CDN/asset dependencies, external services (APIs,
   databases, SaaS), and vendored code. Builds a context map, scores how critical each
-  dependency is, checks licenses and risk signals, advises on vendoring with a mandatory
-  license gate, and maintains a VENDORED.md ledger with upstream update and CVE tracking.
+  dependency is, checks licenses, upstream health and risk signals, measures what a
+  package really costs (lines, reachable code, transitive weight), points to built-in
+  replacements, advises on vendoring only the used part with a mandatory license gate,
+  and maintains a VENDORED.md ledger with upstream update, CVE, local-change tracking and
+  patch help.
   Use when asked to list dependencies, audit the supply chain, generate an SBOM,
   map external services, check vendored code, or assess how dependent a project is
   on outside code.
 argument-hint: "[map|deps|services|vendored]"
-allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/find-manifests.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/scan-imports.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/check-vendored.sh *)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/find-manifests.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/scan-imports.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/check-vendored.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-health.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/measure-package.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/used-api.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-diff.sh *)
 ---
 
 # lifeline — External Dependency Audit & Tracking
@@ -79,9 +82,16 @@ lock-file fallbacks, and import patterns. Then build the inventory:
    models or datasets (from the URL scan output).
 5. **Licenses** — one license per dependency in the table; flag copyleft (GPL/AGPL/SSPL)
    prominently. Unknown license = a finding, not a blank cell.
-6. **Risk signals** — per dependency, where checkable: last release date (stale >2y),
-   deprecated markers, unpinned versions (`*`, `latest`, missing lock entry), known CVEs.
-   Use `npm audit` / `pip-audit` / `osv-scanner` **only if already installed**; otherwise
+6. **Risk signals** — per direct dependency, run
+   `${CLAUDE_SKILL_DIR}/scripts/upstream-health.sh <ecosystem> <package>`
+   (`HEALTH|eco|pkg|latest|published|age-days|deprecated|maintainers|repo|archived|install-scripts|licenses`).
+   Flag: latest release older than 2 years, deprecated, archived repo, a single
+   maintainer, and **install-time scripts** (`preinstall`/`install`/`postinstall` run
+   code on every machine that installs the package — always list them). Also from the
+   manifests: unpinned versions (`*`, `latest`, missing lock entry). Offline → the script
+   says `OFFLINE`; put that in Limits, do not guess the fields.
+   Known CVEs:
+   use `npm audit` / `pip-audit` / `osv-scanner` **only if already installed**; otherwise
    note "CVE scan not available in this environment" in the report.
 7. **Criticality score** — for each direct dependency, apply the rubric in
    [references/report-format.md](references/report-format.md): usage breadth (how many
@@ -105,9 +115,23 @@ Deliverable: a table — service, where it is referenced, credential required, a
 
 Load [references/vendoring.md](references/vendoring.md). For each dependency worth acting on:
 
-1. **Vendoring candidates** — small (≈ a few hundred lines), little of its API used,
-   unmaintained or single-maintainer upstream. For each: bring-in cost (low/med/high),
-   license verdict, security trade-off (vendored code stops receiving upstream patches).
+0. **Built-in first** — match it against [references/replacements.md](references/replacements.md).
+   If the language or runtime already does the job (`left-pad` → `padStart`), recommend
+   deleting the dependency before any vendoring talk. Check the project's real minimum
+   runtime first.
+1. **Vendoring candidates** — measure, do not estimate:
+   - `${CLAUDE_SKILL_DIR}/scripts/measure-package.sh <root> <package>` → total code lines,
+     lines **reachable from the entry file**, direct and transitive dependency count.
+     The reachable figure is what vendoring would really copy; the transitive count is
+     what dropping the dependency would remove (a 50-line package that pulls in 40 others
+     is a strong candidate).
+   - `${CLAUDE_SKILL_DIR}/scripts/used-api.sh <root> <package>` → the exact exported names
+     and members the project uses, per file.
+   Candidate: needed code ≈ under 500 lines, a small part of the API used, unhealthy
+   upstream (Step 1 health). For each: bring-in cost (low/med/high), license verdict,
+   security trade-off (vendored code stops receiving upstream patches).
+   **Vendor only what is used**: the copy is the used exports plus what they call inside
+   the package — not the whole package (procedure in references/vendoring.md).
 2. **License gate — mandatory.** Permissive (MIT/BSD/Apache/ISC) → vendorable with
    attribution. Copyleft (GPL/AGPL/SSPL) → **do not recommend vendoring**; state the
    contamination risk explicitly.
@@ -127,15 +151,25 @@ The step that makes sure copied-in code is never forgotten.
    `${CLAUDE_SKILL_DIR}/scripts/check-vendored.sh <project-root>`.
    It parses each ledger entry and (network permitting) checks the upstream source for
    newer versions and queries the OSV database (api.osv.dev) for known vulnerabilities.
-   Output lines: `ENTRY|name|recorded|latest|osv_hits|status` plus `OFFLINE`/`NOLEDGER` lines.
+   Output lines: `ENTRY|name|recorded|latest|osv_hits|status|local` plus `OFFLINE`/`NOLEDGER` lines.
+   `local` compares the vendored files with the ledger's `Checksum` (works offline):
+   `modified` = someone changed vendored code after it was recorded — report it as a
+   finding unless the entry's `Modifications` field explains it.
 2. Update each entry's `Last-Checked` date and `Status` field in `VENDORED.md`
    (this ledger update is the one file lifeline is allowed to write besides the report).
-   Only after a successful check: `unchecked` (offline, OSV request failed, or an upstream
-   the script cannot read — anything but GitHub) never counts as `current`. It
+   Only after a successful check: `unchecked` (offline, OSV request failed, or no readable
+   upstream — neither a registry covered by deps.dev nor a GitHub source) never counts as
+   `current`. It
    goes into the report but is never written to the ledger — the last known `Status`
    stays, and `Last-Checked` visibly ages.
 3. Findings go into the report's **Vendor Tracking** section: update available,
-   CVE warning, or all current.
+   CVE warning, local modification, or all current.
+   **Patch help** — for every `update-available` or `cve-warning` entry run
+   `${CLAUDE_SKILL_DIR}/scripts/upstream-diff.sh <root> <entry> [target-version]`.
+   It writes `upstream.diff` (recorded → target) and `local.diff` (recorded → our copy)
+   to a temp dir. Read both and propose a concrete patch for the vendored copy: the
+   upstream change, adapted around our local changes. Show the patch; apply it only with
+   approval, and in the same change update `Version`, `Checksum` and `Last-Checked`.
 4. **Offline**: add to the report — "Vendor check NOT performed (no network).
    Last successful check: <date>." Never silent.
 5. No `VENDORED.md`, but the scan found copied-in third-party code (foreign license
@@ -144,12 +178,14 @@ The step that makes sure copied-in code is never forgotten.
 
 ## Report
 
-Write the unified report to `docs/dependency-report.md` following the template in
+Write the unified report to `LifeLine_Report/dependency-report.md` (create the folder at
+the project root if missing; file names in it are always English) following the template in
 [references/report-format.md](references/report-format.md). Sections: Context Map →
 External Code Inventory → External Services → Recommendations → Vendor Tracking →
 Limits of This Analysis.
 
-If a previous `docs/dependency-report.md` exists, read it **before overwriting** and
+If a previous report exists — `LifeLine_Report/dependency-report.md`, or the pre-1.1
+location `docs/dependency-report.md` — read it **before overwriting** and
 include a **"Changes since last report"** section: dependencies added/removed,
 risk or criticality changes, resolved/new findings.
 
@@ -158,10 +194,10 @@ risk or criticality changes, resolved/new findings.
 The person running the skill decides the output format, not the skill. After writing
 the Markdown report, ask exactly one question:
 
-> The report is at `docs/dependency-report.md`. Do you want an additional format?
+> The report is at `LifeLine_Report/dependency-report.md`. Do you want an additional format?
 > 1. Markdown only — done (default)
-> 2. CycloneDX SBOM (`docs/sbom.cdx.json`) — for security/compliance tooling
-> 3. JSON export (`docs/dependency-report.json`) — for feeding other tools
+> 2. CycloneDX SBOM (`LifeLine_Report/sbom.cdx.json`) — for security/compliance tooling
+> 3. JSON export (`LifeLine_Report/dependency-report.json`) — for feeding other tools
 
 Use the AskUserQuestion tool if available; otherwise ask in plain text. Generate the
 extra format only after the user chooses it (schemas in references/report-format.md).
