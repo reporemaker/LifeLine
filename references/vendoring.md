@@ -82,7 +82,8 @@ nobody can tell a deliberate fix from an accident, or from tampering.
 
 ## Patch help — when upstream moves
 
-For an entry that is `update-available` or `cve-warning`:
+For an entry that is `update-available` or `cve-warning` (the latter: everything below goes
+into the sensitive report, not the public one):
 
 1. `upstream-diff.sh <root> <entry> [version]` → `upstream.diff` (recorded → new) and
    `local.diff` (recorded → our copy), in a temp dir.
@@ -133,10 +134,10 @@ Field notes:
 - `Checksum`: `sha256:` of `Location` from `check-vendored.sh --hash`. Step 4 compares it
   on every run, offline too.
 - `Modifications`: `none`, or one line per deliberate change (date · what · why).
-- `Status`: `current` | `update-available` | `cve-warning` — written by Step 4.
-  `current` means every check that applies to the entry actually ran. When one could
-  not run (offline, OSV request failed, no registry identity and a non-GitHub `Source`)
-  the entry is reported as
-  `unchecked`; `unchecked` is never written to the ledger — the last known status stays.
+- `Status`: `current` | `update-available` — the **upstream version** status, written by
+  Step 4 from the `version` field of `check-vendored.sh`. Never `cve-warning`: this file
+  is committed, and an open vulnerability must not be hinted at in it; vulnerability
+  status lives in the private report only. `unchecked` is never written — the last known
+  status stays.
 - `Last-Checked`: updated by Step 4 on every successful check. If the project has no
   network, the date visibly ages — that is the feature.

@@ -35,12 +35,12 @@ LifeLine_Report/
 | `dependency-report.md` | every run | public full report (sections below) |
 | `baseline-<date>.md` | first run only | copy of that run's public report |
 | `changes/<date>-changes.md` | every run after the first | public change report (format below) |
-| `timeline.md` | every run after the first | public timeline (format below) |
+| `timeline.md` | every run after the first | public timeline (`timeline.sh state public`, format below) |
 | `state/<date>.tsv` | every run | `snapshot-state.sh --public` of the private snapshot |
 | `private/sensitive-report.md` | every run | sensitive report (format below) |
 | `private/baseline-<date>-sensitive.md` | first run only | copy of that run's sensitive report |
 | `private/changes/<date>-sensitive.md` | every run after the first | sensitive changes: vulnerabilities opened/closed, new weak points |
-| `private/timeline-sensitive.md` | every run after the first | vulnerability steps per package from `timeline.sh private/state` |
+| `private/timeline-sensitive.md` | every run after the first | vulnerability steps per package from `timeline.sh private/state private` |
 | `private/state/<date>.tsv` | every run | `snapshot-state.sh` output as is |
 | `sbom.cdx.json`, `dependency-report.json` | only if the user picks them | public content only |
 
@@ -167,11 +167,13 @@ Explicitly labeled as recommendations awaiting a human decision.
 
 ## 7. Vendor Tracking
 
-Ledger status from Step 4: per entry — recorded version, latest upstream, status,
-local integrity. A `cve-warning` entry is shown as `see sensitive report` until fixed;
-the OSV ids go to the sensitive report only. Other fields: (`unchanged` / `modified` / `missing` / `untracked`). For every
-`update-available` / `cve-warning` entry: the patch proposal built from
-`upstream-diff.sh` (what changed upstream, how it lands on our copy). If offline: **"Vendor check NOT performed (no network). Last successful check:
+Ledger status from Step 4: per entry — recorded version, latest upstream, version
+status (`current` / `update-available` / `unchecked`), local integrity (`unchanged` /
+`modified` / `missing` / `untracked` / `unknown`). Nothing about vulnerabilities: an entry
+with an open one looks like any other here; its advisories and its patch proposal are in
+the sensitive report. For `update-available` entries without an open vulnerability: the
+patch proposal built from `upstream-diff.sh` (what changed upstream, how it lands on our
+copy). If offline: **"Vendor check NOT performed (no network). Last successful check:
 <date>."** as a visible warning block, never a footnote.
 
 ## 8. Closed vulnerabilities (responsible disclosure)
@@ -269,7 +271,7 @@ newest private snapshots, `vulns` lines) and any new item in the four sensitive 
 
 Short and selective: a reader should see in a minute whether anything needs action.
 Built from `diff-state.sh` on **public** snapshots (previous → now, baseline → now),
-`timeline.sh LifeLine_Report/state`, and the `CLOSED` lines of `disclosure.sh` for this
+`timeline.sh LifeLine_Report/state public`, and the `CLOSED` lines of `disclosure.sh` for this
 run. Open vulnerabilities never appear here; closed ones do, with their dates.
 
 ```markdown
@@ -361,7 +363,7 @@ Minimal valid shape (CycloneDX 1.5, JSON):
   "metadata": {
     "timestamp": "<ISO-8601>",
     "component": { "type": "application", "name": "<project>" },
-    "tools": [ { "name": "LifeLine", "version": "1.0.0" } ]
+    "tools": [ { "name": "LifeLine", "version": "1.0.1" } ]
   },
   "components": [
     {

@@ -5,12 +5,16 @@
 # Output lines:
 #   NOLEDGER|<path>                                    no ledger file — nothing to check
 #   OFFLINE|<reason>                                   remote checks skipped, say so in the report
-#   ENTRY|name|recorded|latest-upstream|osv-hits|status|local
+#   ENTRY|name|recorded|latest-upstream|osv-hits|status|local|version
 #   HASH|<location>|sha256:<hex>                       (--hash mode)
 # status: current | update-available | cve-warning | unchecked
 #   current   = every check that applies to the entry ran and found nothing
 #   unchecked = offline, or a check that applies could not run (no registry identity
 #               and no GitHub Source, OSV request failed) - never reported as current
+# version: current | update-available | unchecked  - upstream version only, never CVEs.
+#   This is the only status written to VENDORED.md: the ledger is committed, so it must
+#   not hint at open vulnerabilities. `status` (with cve-warning) goes to the private
+#   report only.
 # local: unchanged | modified | missing | untracked | unknown   (works offline)
 #   compares the files at `Location` with the recorded `Checksum`; "modified" means
 #   someone edited vendored code after it was recorded - intended or not, it must be
@@ -156,5 +160,10 @@ awk '
     local_state=unknown
   fi
 
-  echo "ENTRY|$name|$ver|${latest:-unknown}|${osv:-0}|$status|$local_state"
+  if [ -z "$latest" ]; then version_state=unchecked
+  elif [ "${latest#v}" = "${ver#v}" ]; then version_state=current
+  else version_state=update-available
+  fi
+
+  echo "ENTRY|$name|$ver|${latest:-unknown}|${osv:-0}|$status|$local_state|$version_state"
 done

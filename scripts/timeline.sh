@@ -2,7 +2,12 @@
 # LifeLine: how every dependency changed across all saved snapshots - the long view
 # a single diff cannot give ("maintained by A four years ago, by G today, and how it
 # got there").
-# Usage: timeline.sh <state-dir>        (LifeLine_Report/state/, files *.tsv in date order)
+# Usage: timeline.sh <state-dir> public|private
+#   public  -> LifeLine_Report/state/          (for timeline.md)
+#   private -> LifeLine_Report/private/state/  (for private/timeline-sensitive.md)
+# Every snapshot in the folder must carry "# visibility: <the one you name>"; a single
+# file of the other kind stops the script before anything is printed, so a private
+# snapshot dropped into state/ by mistake can never reach the public timeline.
 # Output lines:
 #   RUNS|count|first-date|last-date
 #   TIMELINE|project|package|field|date=value|date=value|...
@@ -15,9 +20,15 @@
 set -u
 
 DIR="${1:-}"
-[ -d "$DIR" ] || { echo "usage: timeline.sh <state-dir>" >&2; exit 2; }
+WANT="${2:-}"
+[ -d "$DIR" ] && { [ "$WANT" = public ] || [ "$WANT" = private ]; } ||
+  { echo "usage: timeline.sh <state-dir> public|private" >&2; exit 2; }
 set -- "$DIR"/*.tsv
 [ -f "$1" ] || { echo "RUNS|0|-|-"; exit 0; }
+for f in "$@"; do
+  v=$(sed -n 's/^# visibility: //p' "$f" | head -1)
+  [ "$v" = "$WANT" ] || { echo "ERROR|$f is ${v:-unmarked}, expected $WANT - nothing printed" >&2; exit 2; }
+done
 
 # Run order: date, then same-day suffix (2026-10-24, 2026-10-24-2, 2026-10-24-10).
 # A plain byte sort would put 2026-10-24-2.tsv before 2026-10-24.tsv ('-' < '.').

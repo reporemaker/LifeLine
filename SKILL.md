@@ -157,25 +157,29 @@ The step that makes sure copied-in code is never forgotten.
    `${CLAUDE_SKILL_DIR}/scripts/check-vendored.sh <project-root>`.
    It parses each ledger entry and (network permitting) checks the upstream source for
    newer versions and queries the OSV database (api.osv.dev) for known vulnerabilities.
-   Output lines: `ENTRY|name|recorded|latest|osv_hits|status|local` plus `OFFLINE`/`NOLEDGER` lines.
+   Output lines: `ENTRY|name|recorded|latest|osv_hits|status|local|version` plus `OFFLINE`/`NOLEDGER` lines.
+   `status` includes `cve-warning` and is for the **private** report only; `version`
+   (`current` / `update-available` / `unchecked`) is about the upstream version alone.
    `local` compares the vendored files with the ledger's `Checksum` (works offline):
    `modified` = someone changed vendored code after it was recorded — report it as a
    finding unless the entry's `Modifications` field explains it.
 2. Update each entry's `Last-Checked` date and `Status` field in `VENDORED.md`
    (this ledger update is the one file LifeLine is allowed to write besides the report).
-   Only after a successful check: `unchecked` (offline, OSV request failed, or no readable
-   upstream — neither a registry covered by deps.dev nor a GitHub source) never counts as
-   `current`. It
-   goes into the report but is never written to the ledger — the last known `Status`
-   stays, and `Last-Checked` visibly ages.
-3. Findings go into the report's **Vendor Tracking** section: update available,
-   CVE warning (advisory ids in the sensitive report only), local modification, or all
-   current.
+   `VENDORED.md` is committed, so write the **`version`** field there, never `status`:
+   the ledger must not hint at an open vulnerability. When `version` is `unchecked`
+   (offline, or no upstream the script can read — neither a registry covered by
+   deps.dev nor a GitHub source), leave `Status` and `Last-Checked` as they are; the
+   date visibly ages.
+3. Findings: the public **Vendor Tracking** section shows the version status and local
+   integrity only. `cve-warning` entries, their advisory ids and every patch proposal for
+   them go to the sensitive report only — the public report treats those entries like
+   any other.
    **Patch help** — for every `update-available` or `cve-warning` entry run
    `${CLAUDE_SKILL_DIR}/scripts/upstream-diff.sh <root> <entry> [target-version]`.
    It writes `upstream.diff` (recorded → target) and `local.diff` (recorded → our copy)
    to a temp dir. Read both and propose a concrete patch for the vendored copy: the
-   upstream change, adapted around our local changes. Show the patch; apply it only with
+   upstream change, adapted around our local changes (in the sensitive report if the
+   entry has an open vulnerability). Show the patch; apply it only with
    approval, and in the same change update `Version`, `Checksum` and `Last-Checked`.
    Delete the `WORKDIR` it printed once the patch is proposed — it holds downloaded
    third-party archives.
@@ -221,13 +225,13 @@ On a full run (and on `deps`):
    from the four sensitive groups, not even a count. On the first run also save it as
    `baseline-<date>.md`; never write to a baseline again.
 7. **Change reports** (every run after the first). Public: `diff-state.sh` on public
-   snapshots (previous → now, baseline → now) and `timeline.sh LifeLine_Report/state` →
+   snapshots (previous → now, baseline → now) and `timeline.sh LifeLine_Report/state public` →
    `changes/<date>-changes.md`: what needs attention, what changed, what differs from the
    baseline, ongoing changes over several runs, vulnerabilities closed in this run.
    Private: `diff-state.sh` on private snapshots → `private/changes/<date>-sensitive.md`
    (vulnerabilities opened and closed, new weak points). Only important items.
-8. **Timelines.** `timeline.md` from `timeline.sh LifeLine_Report/state`;
-   `private/timeline-sensitive.md` from `timeline.sh LifeLine_Report/private/state`
+8. **Timelines.** `timeline.md` from `timeline.sh LifeLine_Report/state public`;
+   `private/timeline-sensitive.md` from `timeline.sh LifeLine_Report/private/state private`
    (the vulnerability steps).
 9. **Check before you finish.** `grep` every public file for each `OPEN` advisory id and
    for the sensitive details you wrote into `private/`. Any hit is a bug — move it to

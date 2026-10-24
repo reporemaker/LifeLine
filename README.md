@@ -11,7 +11,7 @@
 
 <p>A Claude Code skill that finds everything your project depends on from the outside, and keeps watching the code you copied in.</p>
 
-<p><b>Version 1.0.0</b></p>
+<p><b>Version 1.0.1</b></p>
 
 </div>
 
@@ -106,7 +106,7 @@ Vulnerabilities that have been fixed are listed with the dates they were found a
 > [!WARNING]
 > **Never put your `private/` folder on GitHub**, not in a public repository and not in a private one. It goes to the customer only, outside GitHub: USB stick, encrypted e-mail, or by hand.
 >
-> ChessRun contains one file under `private/`, `sensitive-report.EXAMPLE.md`, committed on purpose to show the format. **All of its data is fake.** ChessRun's real sensitive report has never been in the repository.
+> ChessRun shows the format in a separate folder, `private_test/sensitive-report.EXAMPLE.md`, committed on purpose. **All of its data is fake.** Its real `private/` folder is not in the repository. ChessRun's real sensitive report has never been in the repository.
 
 ## Notes
 
