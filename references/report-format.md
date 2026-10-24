@@ -361,7 +361,7 @@ Minimal valid shape (CycloneDX 1.5, JSON):
   "metadata": {
     "timestamp": "<ISO-8601>",
     "component": { "type": "application", "name": "<project>" },
-    "tools": [ { "name": "LifeLine", "version": "1.1.0" } ]
+    "tools": [ { "name": "LifeLine", "version": "1.0.0" } ]
   },
   "components": [
     {

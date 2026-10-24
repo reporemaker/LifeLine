@@ -11,6 +11,8 @@
 
 <p>A Claude Code skill that finds everything your project depends on from the outside, and keeps watching the code you copied in.</p>
 
+<p><b>Version 1.0.0</b></p>
+
 </div>
 
 ## Why
@@ -99,7 +101,7 @@ Vulnerabilities that have been fixed are listed with the dates they were found a
 
 ## Example output
 
-[ChessRun](https://github.com/reporemaker/ChessRun) is an open-source game whose `LifeLine_Report/` folder is public, as a real example: **[ChessRun/LifeLine_Report](https://github.com/reporemaker/ChessRun/tree/main/LifeLine_Report)**. It holds the full report with the 22 vulnerabilities found and fixed on the first day, the baseline, a change report, the timeline and the snapshots.
+[ChessRun](https://github.com/reporemaker/ChessRun) is an open-source game whose `LifeLine_Report/` folder is public, as a real example: **[ChessRun/LifeLine_Report](https://github.com/reporemaker/ChessRun/tree/main/LifeLine_Report)**. It holds the full report with the 21 vulnerabilities found and fixed on the first day, the baseline, a change report, the timeline and the snapshots.
 
 > [!WARNING]
 > **Never put your `private/` folder on GitHub**, not in a public repository and not in a private one. It goes to the customer only, outside GitHub: USB stick, encrypted e-mail, or by hand.
@@ -116,3 +118,7 @@ Vulnerabilities that have been fixed are listed with the dates they were found a
 ## License
 
 [MIT](LICENSE)
+
+---
+
+[RE\*maker](https://remaker.ch) // SEU // Emekulas // [SmartKraft](https://github.com/smrtkrft)
