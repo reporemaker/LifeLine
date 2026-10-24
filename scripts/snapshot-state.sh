@@ -106,8 +106,10 @@ if [ -f VENDORED.md ]; then
     e=$(awk -F'|' -v n="$name" '$2 == n' "$TMP/entries" | head -1)
     latest=$(printf '%s' "$e" | cut -d'|' -f4); local_state=$(printf '%s' "$e" | cut -d'|' -f7)
     shown=$pkg; [ "$pkg" = none ] && shown=$name
+    # Row key for the join: the ledger entry name (unique), carried in the package
+    # column as "shown" plus the entry name when they differ.
     printf '.\t%s\t%s\t%s\tvendored\t%s\t-\n' "$eco" "$shown" "$ver" "$lic" >> "$TMP/rows"
-    printf '%s\t%s\t%s\n' "$shown" "${latest:--}" "${local_state:--}" >> "$TMP/vend"
+    printf '%s\t%s\t%s\t%s\n' "$shown" "$ver" "${latest:--}" "${local_state:--}" >> "$TMP/vend"
   done < "$TMP/ledger"
 fi
 
@@ -138,6 +140,8 @@ if [ "$NET" -eq 1 ] && [ -s "$TMP/q" ]; then
     curl -s --max-time 60 -X POST "https://api.osv.dev/v1/querybatch" -H 'Content-Type: application/json' \
       --data-binary @"$TMP/body" > "$TMP/osv" 2>/dev/null || : > "$TMP/osv"
     grep -q '"results"' "$TMP/osv" || { fail=1; break; }
+    # A paginated answer would hide the ids past the first page; treat it as a failure.
+    grep -q '"next_page_token"' "$TMP/osv" && { fail=1; break; }
     # Split "results":[ {...}, {...} ] into one line of ids per query, in order.
     awk 'BEGIN { RS = "\001" } {
       i = index($0, "\"results\":["); if (!i) exit
@@ -169,11 +173,12 @@ printf 'project\tecosystem\tpackage\tversion\tscope\tlicense\tinstall\tlatest\tp
 awk -F'\t' -v OFS='\t' '
   FILENAME == ARGV[1] { h[$1 "|" $2] = $3 "\t" $4 "\t" $5 "\t" $6 "\t" $7 "\t" $8 "\t" $9; next }
   FILENAME == ARGV[2] { v[$1] = $2; next }
-  FILENAME == ARGV[3] { vl[$1] = $2; vs[$1] = $3; next }
+  FILENAME == ARGV[3] { vl[$1 "|" $2] = $3; vs[$1 "|" $2] = $4; next }
   {
     hv = (($2 "|" $3) in h) ? h[$2 "|" $3] : "-\t-\t-\t-\t-\t-\t-"
-    if ($5 == "vendored" && ($3 in vl)) { split(hv, a, "\t"); if (a[1] == "-") a[1] = vl[$3]; hv = a[1] "\t" a[2] "\t" a[3] "\t" a[4] "\t" a[5] "\t" a[6] "\t" a[7] }
+    vk = $3 "|" $4   # vendored rows: package + recorded version (two entries of one package differ by version)
+    if ($5 == "vendored" && (vk in vl)) { split(hv, a, "\t"); if (a[1] == "-") a[1] = vl[vk]; hv = a[1] "\t" a[2] "\t" a[3] "\t" a[4] "\t" a[5] "\t" a[6] "\t" a[7] }
     vv = (FNR in v) ? v[FNR] : "-"
-    lo = ($5 == "vendored" && ($3 in vs)) ? vs[$3] : "-"
+    lo = ($5 == "vendored" && (vk in vs)) ? vs[vk] : "-"
     print $0, hv, vv, lo
   }' "$TMP/health" "$TMP/vulns" "$TMP/vend" "$TMP/rows" | LC_ALL=C sort -t "$TAB" -k1,1 -k3,3 -k4,4

@@ -210,8 +210,10 @@ On a full run (and on `deps`):
    snapshots for public reports, private ones for private reports. No `state/` but an
    older report? Migrate it as report-format.md describes (it may hold sensitive items).
 4. **Disclosure.** `${CLAUDE_SKILL_DIR}/scripts/disclosure.sh LifeLine_Report/private/state`:
-   `CLOSED` lines may be published (Closed vulnerabilities section); `OPEN` lines go to
-   the sensitive report only.
+   `CLOSED` lines may be published (Closed vulnerabilities section); `OPEN` and
+   `REOPENED` lines go to the sensitive report only. The public Closed table is
+   cumulative: a row written in an earlier run stays even if the script no longer
+   prints it (the advisory came back) — removing it would show that it came back.
 5. **Sensitive report.** Write `private/sensitive-report.md`, starting with the
    confidentiality notice from report-format.md, verbatim. On the first run also copy it
    to `private/baseline-<date>-sensitive.md`.
@@ -229,9 +231,14 @@ On a full run (and on `deps`):
 8. **Timelines.** `timeline.md` from `timeline.sh LifeLine_Report/state public`;
    `private/timeline-sensitive.md` from `timeline.sh LifeLine_Report/private/state private`
    (the vulnerability steps).
-9. **Check before you finish.** `grep` every public file for each `OPEN` advisory id and
-   for the sensitive details you wrote into `private/`. Any hit is a bug — move it to
-   `private/` before answering.
+9. **Check before you finish.** Build the forbidden list from the private report: every
+   `OPEN` and `REOPENED` advisory id, its CVE aliases (`aliases` in the OSV record, if you
+   looked one up), and each affected `package@version`. `grep -r` for all of them in every
+   file that leaves the machine: the public `LifeLine_Report/` files, `VENDORED.md` (a
+   `Modifications` line can name an advisory), `sbom.cdx.json` and
+   `dependency-report.json` if they were produced. Then grep the same files for the
+   sensitive details you wrote into `private/` (backup paths, secret names and what they
+   unlock, bypass flags). Any hit is a bug — move it to `private/` before answering.
 
 Comparisons always come from the snapshots, never from re-reading old Markdown. Never
 overwrite a baseline, a change report or a snapshot. Never commit anything yourself;

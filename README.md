@@ -11,7 +11,7 @@
 
 <p>A Claude Code skill that finds everything your project depends on from the outside, and keeps watching the code you copied in.</p>
 
-<p><b>Version 1.0.2</b></p>
+<p><b>Version 1.0.3</b></p>
 
 </div>
 

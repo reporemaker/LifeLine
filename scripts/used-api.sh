@@ -37,7 +37,7 @@ members() {
   n=$(grep -oE "(^|[^A-Za-z0-9_\$.])$b[[:space:]]*\(" "$flat" | wc -l | tr -d ' ')
   i=0; while [ "$i" -lt "$n" ]; do emit "$file" default "$shown()"; i=$((i + 1)); done
   # Passed or stored as a value: neither called nor dotted.
-  if grep -qE "(^|[^A-Za-z0-9_\$.])$b[[:space:]]*[,)\]}]" "$flat"; then emit "$file" whole "$shown"; fi
+  if grep -qE "(^|[^A-Za-z0-9_\$.])$b[[:space:]]*[],)}]" "$flat"; then emit "$file" whole "$shown"; fi
 }
 
 # --- JavaScript / TypeScript --------------------------------------------------

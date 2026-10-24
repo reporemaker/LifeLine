@@ -177,8 +177,11 @@ patch proposals: every entry gets the same columns. Advisories and all patch pro
 ## 8. Closed vulnerabilities (responsible disclosure)
 
 Every vulnerability that was found by an earlier run and is gone now, from
-`disclosure.sh LifeLine_Report/private/state` (`CLOSED` lines only — `OPEN` lines never
-appear in a public file). Cumulative: the whole record, newest closures first.
+`disclosure.sh LifeLine_Report/private/state` (`CLOSED` lines only — `OPEN` and
+`REOPENED` lines never appear in a public file). Cumulative: the whole record, newest
+closures first. Rows from earlier runs are kept as they are, even when the script no
+longer prints that id: an advisory that came back is a `REOPENED` line for the
+sensitive report, and dropping its old row here would reveal exactly that.
 
 ```markdown
 | Advisory | Package | Project | Found | Closed | Days open |
@@ -361,7 +364,7 @@ Minimal valid shape (CycloneDX 1.5, JSON):
   "metadata": {
     "timestamp": "<ISO-8601>",
     "component": { "type": "application", "name": "<project>" },
-    "tools": [ { "name": "LifeLine", "version": "1.0.2" } ]
+    "tools": [ { "name": "LifeLine", "version": "1.0.3" } ]
   },
   "components": [
     {

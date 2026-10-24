@@ -64,7 +64,12 @@ awk -F'\t' '
   function minus(a, b,   n, x, i, r) { n = split(a, x, ";"); r = ""; for (i = 1; i <= n; i++) if (!inlist(x[i], b)) r = r (r == "" ? "" : ";") x[i]; return r }
 
   FNR == 1 { side = (++file == 1) ? "o" : "n" }   # by position: the same path may be passed twice
-  /^#/ { if ($0 ~ /^# generated: /) gen[side] = substr($0, 14); next }
+  /^#/ {
+    if ($0 ~ /^# generated: /) gen[side] = substr($0, 14)
+    # "# limit: <lock path> ..." - that project was not read in this snapshot.
+    if ($0 ~ /^# limit: / && $0 !~ /OSV/) { lp = substr($0, 10); sub(/ .*/, "", lp); d = lp; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."; blind[side, d] = 1 }
+    next
+  }
   $1 == "project" { next }
   { load(side) }
 
@@ -72,13 +77,19 @@ awk -F'\t' '
     today = days(gen["n"])
     for (k in keys) {
       if (!seen["o", k]) {
+        split(k, pp, SUBSEP)
+        if (blind["o", pp[1]]) continue   # lock not read last time: unknown, not added
         s = sc["n", k]
         sev = (s == "direct-runtime" || s == "transitive-runtime" || s == "vendored") ? "medium" : "info"
         note = (s == "transitive-runtime") ? "new package in the runtime tree - check who pulls it in and why" : ""
         if (ins["n", k] == "yes") { sev = "high"; note = "new package that runs an install script" }
         out(sev, k, "added", "-", ver["n", k] " " s, note); add++; continue
       }
-      if (!seen["n", k]) { out("info", k, "removed", ver["o", k] " " sc["o", k], "-", ""); rem++; continue }
+      if (!seen["n", k]) {
+        split(k, pp, SUBSEP)
+        if (blind["n", pp[1]]) continue   # lock not read this time: unknown, not removed
+        out("info", k, "removed", ver["o", k] " " sc["o", k], "-", ""); rem++; continue
+      }
 
       if (ver["o", k] != ver["n", k] && known(ver["o", k]) && known(ver["n", k])) out("info", k, "version", ver["o", k], ver["n", k], "")
       if (sc["o", k] != sc["n", k]) {

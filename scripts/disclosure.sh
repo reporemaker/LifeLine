@@ -5,14 +5,21 @@
 # Usage: disclosure.sh <private-state-dir>     (LifeLine_Report/private/state/)
 # Output lines:
 #   CLOSED|project|package|id|first-seen|closed-on|days-open
-#       seen in an earlier run, gone in a later complete run (fixed, upgraded, or the
-#       package left a project whose lock file was read in full)
-#   OPEN|project|package|id|first-seen|days-so-far       private report only
+#       seen in an earlier run, gone in a later complete run, and not open anywhere
+#       else today. This is the only line kind that may appear in a public file.
+#   OPEN|project|package|id|first-seen|days-so-far           private report only
+#   REOPENED|project|package|id|first-seen|closed-on|reopened-on   private report only
+#       was gone, is back. The public "Closed vulnerabilities" table keeps its old
+#       CLOSED row (cumulative); the public report never says it came back.
 # Dates are YYYY-MM-DD (a same-day run suffix like -2 is dropped).
+# An advisory id is reported as CLOSED only if, in the newest run, it is open in NO
+# project: the same id open in one project and gone from another stays OPEN (one
+# CLOSED line would give the open one away).
 # A run says nothing - neither "seen" nor "gone" - about:
 #   - every package, when it was offline or the OSV query failed;
 #   - a project whose lock file could not be read (a "# limit:" line for it), or that
-#     has no rows in that run;
+#     has no lock-file rows in that run (vendored rows alone do not count: a deleted
+#     lock file must not read as "every package gone");
 #   - a package whose vulns field is "-".
 # So a missing lock, a missing node or a broken lock file can never turn an open
 # vulnerability into a published "closed" one. Every snapshot must be private: a single
@@ -48,24 +55,36 @@ printf '%s\n' "$@" | awk '{ b = $0; sub(/^.*\//, "", b); sub(/\.tsv$/, "", b); n
   }
   /^#/ || $1 == "project" { next }
   {
-    pk = $1 SUBSEP $3; projseen[run, $1] = 1
+    pk = $1 SUBSEP $3
+    # Only lock-file rows prove that a project was read; vendored rows come from
+    # VENDORED.md and are there even when the lock file is gone.
+    if ($5 != "vendored") projseen[run, $1] = 1
     if ($15 == "-") { blind[run, pk] = 1; next }
     if ($15 == "none") next
     n = split($15, ids, ";")
-    for (i = 1; i <= n; i++) { k = pk SUBSEP ids[i]; vk[k] = 1; hit[run, k] = 1 }
+    for (i = 1; i <= n; i++) {
+      k = pk SUBSEP ids[i]; vk[k] = 1; hit[run, k] = 1
+      openlast[ids[i]] = run          # newest run in which this id is open anywhere
+    }
   }
   END {
     for (k in vk) {
       split(k, p, SUBSEP); pk = p[1] SUBSEP p[2]
-      first = 0; closed = 0
+      first = 0; closed = 0; reopened = 0; lastclosed = 0
       for (r = 1; r <= run; r++) {
-        if (hit[r, k]) { if (!first) first = r; closed = 0; continue }
+        if (hit[r, k]) {
+          if (!first) first = r
+          if (closed) { reopened = r; lastclosed = closed; closed = 0 }
+          continue
+        }
         if (!first || closed || partial[r] || blindproj[r, p[1]] || blind[r, pk] || !projseen[r, p[1]]) continue
         # Gone in a complete run: checked without this id, or the package left a
         # project whose lock file was read.
         closed = r
       }
+      if (closed && openlast[p[3]] == run) closed = 0   # open elsewhere today: not closed
       if (closed) print "CLOSED|" p[1] "|" p[2] "|" p[3] "|" day[first] "|" day[closed] "|" days(day[closed]) - days(day[first])
+      else if (reopened) print "REOPENED|" p[1] "|" p[2] "|" p[3] "|" day[first] "|" day[lastclosed] "|" day[reopened]
       else print "OPEN|" p[1] "|" p[2] "|" p[3] "|" day[first] "|" days(day[run]) - days(day[first])
     }
   }' | LC_ALL=C sort -t'|' -k1,1 -k6,6 -k2,2 -k3,3 -k4,4
