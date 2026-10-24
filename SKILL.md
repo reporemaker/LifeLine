@@ -1,21 +1,16 @@
 ---
 name: lifeline
 description: >-
-  Audit and continuously track everything a project depends on from the outside:
-  open-source packages (declared and actually used), toolchain dependencies (CI actions,
-  Docker base images, build tools), CDN/asset dependencies, external services (APIs,
-  databases, SaaS), and vendored code. Builds a context map, scores how critical each
-  dependency is, checks licenses, upstream health and risk signals, measures what a
-  package really costs (lines, reachable code, transitive weight), points to built-in
-  replacements, advises on vendoring only the used part with a mandatory license gate,
-  maintains a VENDORED.md ledger with upstream update, CVE, local-change tracking and
-  patch help, and keeps a dated history (baseline, change reports, per-dependency
-  timeline) so slow changes such as a maintainer handover show up across runs. Splits
-  every report into a public part and a private part (open vulnerabilities, failure
-  impact, secrets, attack paths) that is never committed and goes to the customer only.
-  Use when asked to list dependencies, audit the supply chain, generate an SBOM,
-  map external services, check vendored code, or assess how dependent a project is
-  on outside code.
+  Finds everything a project depends on from the outside and keeps watching it over
+  time: packages (declared and actually used), CI actions, Docker images, CDN files,
+  external services and code copied into the repo. Checks licenses and upstream health
+  (last release, deprecation, maintainers, install scripts, known vulnerabilities),
+  shows which dependencies the project really relies on, suggests built-in replacements,
+  and helps copy in only the part that is used. Keeps copied code in a VENDORED.md
+  ledger and a dated report history, so a slow change such as a maintainer handover
+  shows up. Open vulnerabilities and other weak points go to a private report that is
+  never committed. Use when asked to list or audit dependencies, check the supply chain,
+  make an SBOM, map external services or check vendored code.
 argument-hint: "[map|deps|services|vendored]"
 allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/snapshot-state.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/disclosure.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/diff-state.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/timeline.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/find-manifests.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/scan-imports.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/check-vendored.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-health.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/measure-package.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/used-api.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-diff.sh *)
 ---
@@ -87,15 +82,15 @@ lock-file fallbacks, and import patterns. Then build the inventory:
    prominently. Unknown license = a finding, not a blank cell.
 6. **Risk signals** — per direct dependency, run
    `${CLAUDE_SKILL_DIR}/scripts/upstream-health.sh <ecosystem> <package>`
-   (`HEALTH|eco|pkg|latest|published|age-days|deprecated|maintainers|repo|archived|install-scripts|licenses`).
+   (`HEALTH|eco|pkg|latest|published|age-days|deprecated|maintainers|repo|archived|install-scripts|licenses|maintainer-names|publisher`).
    Flag: latest release older than 2 years, deprecated, archived repo, a single
    maintainer, and **install-time scripts** (`preinstall`/`install`/`postinstall` run
    code on every machine that installs the package — always list them). Also from the
    manifests: unpinned versions (`*`, `latest`, missing lock entry). Offline → the script
    says `OFFLINE`; put that in Limits, do not guess the fields.
-   Known CVEs:
-   use `npm audit` / `pip-audit` / `osv-scanner` **only if already installed**; otherwise
-   note "CVE scan not available in this environment" in the report. Open
+   Known CVEs: `snapshot-state.sh` (Report step 2) already queries OSV for every package
+   in the lock files; `npm audit` / `pip-audit` / `osv-scanner` add a second opinion only
+   if already installed. If OSV was not reachable, say so in Limits. Open
    vulnerabilities are **sensitive**: they go to `private/sensitive-report.md` only
    (see Report); the public report does not mention them, not even as a count.
 7. **Criticality score** — for each direct dependency, apply the rubric in
@@ -171,15 +166,16 @@ The step that makes sure copied-in code is never forgotten.
    deps.dev nor a GitHub source), leave `Status` and `Last-Checked` as they are; the
    date visibly ages.
 3. Findings: the public **Vendor Tracking** section shows the version status and local
-   integrity only. `cve-warning` entries, their advisory ids and every patch proposal for
-   them go to the sensitive report only — the public report treats those entries like
-   any other.
+   integrity only, the same columns for every entry. `cve-warning` entries, their
+   advisory ids and **every** patch proposal go to the sensitive report — a proposal
+   shown publicly for some entries but not others would point at the ones with an open
+   vulnerability.
    **Patch help** — for every `update-available` or `cve-warning` entry run
    `${CLAUDE_SKILL_DIR}/scripts/upstream-diff.sh <root> <entry> [target-version]`.
    It writes `upstream.diff` (recorded → target) and `local.diff` (recorded → our copy)
    to a temp dir. Read both and propose a concrete patch for the vendored copy: the
-   upstream change, adapted around our local changes (in the sensitive report if the
-   entry has an open vulnerability). Show the patch; apply it only with
+   upstream change, adapted around our local changes, written into the sensitive
+   report. Show the patch; apply it only with
    approval, and in the same change update `Version`, `Checksum` and `Last-Checked`.
    Delete the `WORKDIR` it printed once the patch is proposed — it holds downloaded
    third-party archives.

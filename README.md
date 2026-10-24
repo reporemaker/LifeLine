@@ -11,7 +11,7 @@
 
 <p>A Claude Code skill that finds everything your project depends on from the outside, and keeps watching the code you copied in.</p>
 
-<p><b>Version 1.0.1</b></p>
+<p><b>Version 1.0.2</b></p>
 
 </div>
 
@@ -57,6 +57,8 @@ For one project, shared with the team through the repo:
 ```sh
 git clone https://github.com/reporemaker/LifeLine .claude/skills/lifeline
 ```
+
+Update later with `git -C ~/.claude/skills/lifeline pull` (or the project path).
 
 ## Use
 
@@ -112,7 +114,9 @@ Vulnerabilities that have been fixed are listed with the dates they were found a
 
 - **No dependencies of its own.** Plain bash (macOS 3.2 compatible) and standard Unix tools. `curl`, `node` and `python3` make it see more, but are optional.
 - **Works offline.** Remote checks are skipped and the report says so. A skipped check is never shown as "current".
-- **Static analysis has limits.** Dynamic imports are not traced, and "reachable lines" are counted per file. Every report ends with a "Limits of This Analysis" section.
+- **Static analysis has limits.** Dynamic imports are not traced, and "reachable lines" are counted per file. Every report has a "Limits of This Analysis" section.
+- **History needs npm lock files and `node` for now.** The snapshots behind the change reports and the timeline read `package-lock.json` with `node`. Other ecosystems are still audited, but listed as a limit in the history.
+- **GitHub rate limit.** Upstream checks use GitHub's API without a token (60 requests an hour). Set `GITHUB_TOKEN` for larger projects.
 - **Reports in your language.** Section names and file names stay English; the prose follows the language you write in.
 
 ## License

@@ -29,13 +29,15 @@ emit() { echo "$1|$2|$3" >> "$TMP/out"; }   # file|kind|symbol
 
 # Count binding.member uses and bare calls of one local binding in one flattened file.
 members() {
-  file="$1"; flat="$2"; b="$3"
+  file="$1"; flat="$2"
+  # The binding goes into regexes: escape $ (jQuery-style names) and dots.
+  b=$(printf '%s' "$3" | sed 's/[$.]/\\&/g'); shown="$3"
   grep -oE "(^|[^A-Za-z0-9_\$.])$b\.[A-Za-z_\$][A-Za-z0-9_\$]*" "$flat" |
     sed -E "s/.*$b\.//" | while IFS= read -r m; do emit "$file" member "$m"; done
   n=$(grep -oE "(^|[^A-Za-z0-9_\$.])$b[[:space:]]*\(" "$flat" | wc -l | tr -d ' ')
-  i=0; while [ "$i" -lt "$n" ]; do emit "$file" default "$b()"; i=$((i + 1)); done
+  i=0; while [ "$i" -lt "$n" ]; do emit "$file" default "$shown()"; i=$((i + 1)); done
   # Passed or stored as a value: neither called nor dotted.
-  if grep -qE "(^|[^A-Za-z0-9_\$.])$b[[:space:]]*[,)\]}]" "$flat"; then emit "$file" whole "$b"; fi
+  if grep -qE "(^|[^A-Za-z0-9_\$.])$b[[:space:]]*[,)\]}]" "$flat"; then emit "$file" whole "$shown"; fi
 }
 
 # --- JavaScript / TypeScript --------------------------------------------------

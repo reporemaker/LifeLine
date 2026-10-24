@@ -77,9 +77,14 @@ bash "$SELF/find-manifests.sh" . | while IFS="$TAB" read -r cat path; do
           const lic = typeof v.license === "string" ? v.license : (v.license && v.license.type) || "unknown";
           const row = [proj, "npm", name, v.version || "unknown", scope, lic.replace(/\s+/g, " "), v.hasInstallScript ? "yes" : "no"].join("\t");
           if (!seen.has(row)) { seen.add(row); console.log(row) }
-        }' "$path" "$proj" | while IFS= read -r line; do
-          case "$line" in LIMIT"$TAB"*) echo "# limit: ${line#LIMIT$TAB}" ;; *) echo "$line" >> "$TMP/rows" ;; esac
-        done
+        }' "$path" "$proj" > "$TMP/lock.out" 2>/dev/null
+      if [ $? -ne 0 ]; then
+        # Unreadable lock (broken JSON, unexpected shape): say so, add no rows from it.
+        echo "# limit: $path not read (lock file could not be parsed)"; continue
+      fi
+      while IFS= read -r line; do
+        case "$line" in LIMIT"$TAB"*) echo "# limit: ${line#LIMIT$TAB}" ;; *) echo "$line" >> "$TMP/rows" ;; esac
+      done < "$TMP/lock.out"
       ;;
     *) echo "# limit: $path not snapshotted (format not supported yet)" ;;
   esac
@@ -116,20 +121,23 @@ if [ "$NET" -eq 1 ]; then
     done
 fi
 
-# --- 3. Known vulnerabilities: one OSV batch query for every row with a version ---
+# --- 3. Known vulnerabilities: OSV batch queries, 1000 rows each (the API limit) ---
 awk -F'\t' '$2 != "none" && $4 != "unknown" { print NR "\t" $2 "\t" $3 "\t" $4 }' "$TMP/rows" > "$TMP/q"
 : > "$TMP/vulns"
 if [ "$NET" -eq 1 ] && [ -s "$TMP/q" ]; then
-  # OSV ecosystem names are case-sensitive: npm, PyPI, crates.io, Go, Maven, NuGet ...
-  {
-    printf '{"queries":['
-    awk -F'\t' '{ gsub(/\\/, "\\\\", $3); gsub(/"/, "\\\"", $3); gsub(/"/, "\\\"", $4)
-                  printf "%s{\"package\":{\"name\":\"%s\",\"ecosystem\":\"%s\"},\"version\":\"%s\"}", (NR > 1 ? "," : ""), $3, $2, $4 }' "$TMP/q"
-    printf ']}'
-  } > "$TMP/body"
-  curl -s --max-time 60 -X POST "https://api.osv.dev/v1/querybatch" -H 'Content-Type: application/json' \
-    --data-binary @"$TMP/body" > "$TMP/osv" 2>/dev/null || : > "$TMP/osv"
-  if grep -q '"results"' "$TMP/osv"; then
+  split -l 1000 "$TMP/q" "$TMP/qpart."
+  : > "$TMP/ids"; fail=0
+  for part in "$TMP"/qpart.*; do
+    # OSV ecosystem names are case-sensitive: npm, PyPI, crates.io, Go, Maven, NuGet ...
+    {
+      printf '{"queries":['
+      awk -F'\t' '{ gsub(/\\/, "\\\\", $3); gsub(/"/, "\\\"", $3); gsub(/"/, "\\\"", $4)
+                    printf "%s{\"package\":{\"name\":\"%s\",\"ecosystem\":\"%s\"},\"version\":\"%s\"}", (NR > 1 ? "," : ""), $3, $2, $4 }' "$part"
+      printf ']}'
+    } > "$TMP/body"
+    curl -s --max-time 60 -X POST "https://api.osv.dev/v1/querybatch" -H 'Content-Type: application/json' \
+      --data-binary @"$TMP/body" > "$TMP/osv" 2>/dev/null || : > "$TMP/osv"
+    grep -q '"results"' "$TMP/osv" || { fail=1; break; }
     # Split "results":[ {...}, {...} ] into one line of ids per query, in order.
     awk 'BEGIN { RS = "\001" } {
       i = index($0, "\"results\":["); if (!i) exit
@@ -143,9 +151,15 @@ if [ "$NET" -eq 1 ] && [ -s "$TMP/q" ]; then
             while (match(t, /"id":"[^"]*"/)) { id = substr(t, RSTART + 6, RLENGTH - 7); ids = ids (ids ? ";" : "") id; t = substr(t, RSTART + RLENGTH) }
             print (ids ? ids : "none"); elem = "" } }
         if (c == "]" && depth == 0) break
-      } }' "$TMP/osv" > "$TMP/ids"
+      } }' "$TMP/osv" > "$TMP/ids.part"
+    # One answer per query, or the whole run is treated as not collected.
+    [ "$(wc -l < "$TMP/ids.part")" -eq "$(wc -l < "$part")" ] || { fail=1; break; }
+    cat "$TMP/ids.part" >> "$TMP/ids"
+  done
+  if [ "$fail" -eq 0 ]; then
     paste "$TMP/q" "$TMP/ids" | awk -F'\t' -v OFS='\t' '{ print $1, $5 }' > "$TMP/vulns"
   else
+    # All or nothing: a partial list would make the missing ones look fixed.
     echo "# limit: OSV batch query failed - vulns not collected"
   fi
 fi

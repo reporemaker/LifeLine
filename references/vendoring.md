@@ -82,8 +82,9 @@ nobody can tell a deliberate fix from an accident, or from tampering.
 
 ## Patch help — when upstream moves
 
-For an entry that is `update-available` or `cve-warning` (the latter: everything below goes
-into the sensitive report, not the public one):
+For an entry that is `update-available` or `cve-warning`. Everything below goes into the
+sensitive report, for every entry, so the public report cannot single out the ones with an
+open vulnerability:
 
 1. `upstream-diff.sh <root> <entry> [version]` → `upstream.diff` (recorded → new) and
    `local.diff` (recorded → our copy), in a temp dir.

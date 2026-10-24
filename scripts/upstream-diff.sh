@@ -12,7 +12,8 @@
 #   UPSTREAM|<n-files-changed>|<dir>/upstream.diff
 #   LOCAL|<n-files-changed>|<dir>/local.diff
 #   UNMAPPED|<vendored-file>               no counterpart found upstream (set Upstream-Path)
-#   ERROR|<reason>
+#   OFFLINE|<reason>                       no network: nothing fetched
+#   ERROR|<reason>                         nothing to compare; WORKDIR already removed
 # Sources: npm registry tarballs, PyPI sdists, GitHub tag archives. Downloaded archives
 # are only extracted and diffed - nothing in them is ever executed.
 set -u
@@ -23,7 +24,9 @@ TARGET="${3:-}"
 [ -n "$ROOT" ] && [ -n "$NAME" ] || { echo "usage: upstream-diff.sh <project-root> <entry> [target-version]" >&2; exit 2; }
 LEDGER="$ROOT/VENDORED.md"
 [ -f "$LEDGER" ] || { echo "ERROR|no VENDORED.md in $ROOT"; exit 0; }
-command -v curl >/dev/null 2>&1 || { echo "ERROR|curl missing"; exit 0; }
+if ! command -v curl >/dev/null 2>&1 || ! curl -s --max-time 6 -o /dev/null "https://registry.npmjs.org" 2>/dev/null; then
+  echo "OFFLINE|network unavailable or curl missing - no diff"; exit 0
+fi
 
 field() {
   awk -v want="$NAME" -v key="$1" '
@@ -35,12 +38,16 @@ field() {
 ECO=$(field Ecosystem); PKG=$(field Package-Name); VER=$(field Version)
 SRC=$(field Source); LOC=$(field Location); UPATH=$(field Upstream-Path)
 [ -n "$VER" ] && [ -n "$LOC" ] || { echo "ERROR|entry '$NAME' not found or has no Version/Location"; exit 0; }
+[ -e "$ROOT/$LOC" ] || { echo "ERROR|Location $LOC does not exist - nothing to compare"; exit 0; }
 
 eco_lc=$(printf '%s' "$ECO" | tr 'A-Z' 'a-z')
 ownerrepo=""
 case "$SRC" in *github.com/*) ownerrepo=$(printf '%s' "$SRC" | sed -E 's|.*github\.com/([^/ ]+/[^/ ]+).*|\1|; s|\.git$||') ;; esac
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/lifeline-diff.XXXXXX") || exit 1
+# On any ERROR the downloads are useless: remove them (on success the caller reads,
+# then deletes, WORKDIR).
+fail() { echo "ERROR|$1"; rm -rf "$WORK"; exit 0; }
 echo "WORKDIR|$WORK"
 
 # Default target: registry latest, else newest GitHub tag.
@@ -56,7 +63,7 @@ if [ -z "$TARGET" ]; then
       sed -n 's/.*"name"[^"]*"\([^"]*\)".*/\1/p' | head -1)
   fi
 fi
-[ -n "$TARGET" ] || { echo "ERROR|could not determine a target version - pass one explicitly"; exit 0; }
+[ -n "$TARGET" ] || fail "could not determine a target version - pass one explicitly"
 
 # Fetch one version into $WORK/<slot>/ (archive top folder stripped).
 fetch() {
@@ -80,8 +87,8 @@ fetch() {
   tar -xzf "$WORK/$slot.tgz" -C "$WORK/$slot" --strip-components 1 2>/dev/null || return 1
   echo "FETCHED|$slot|$v|$WORK/$slot"
 }
-fetch recorded "$VER" || { echo "ERROR|could not fetch recorded version $VER"; exit 0; }
-fetch target "$TARGET" || { echo "ERROR|could not fetch target version $TARGET"; exit 0; }
+fetch recorded "$VER" || fail "could not fetch recorded version $VER"
+fetch target "$TARGET" || fail "could not fetch target version $TARGET"
 
 # Which upstream path does a vendored file correspond to? Upstream-Path wins, then the
 # same relative path, then a unique basename match.

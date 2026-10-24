@@ -76,7 +76,7 @@ Rules:
 - **`.gitignore` first.** Before the first file goes into `private/`, make sure
   `LifeLine_Report/.gitignore` contains `private/`. If the project's git already tracks
   a file under `private/`, stop and tell the user — ignoring does not untrack.
-- **Migrating an older folder.** A `dependency-report.md` (or the pre-1.1
+- **Migrating an older folder.** A `dependency-report.md` (or one at the old location
   `docs/dependency-report.md`) without `state/`: it may contain sensitive items. Move it
   to `private/baseline-<its Generated date>-sensitive.md`, write a public
   `baseline-<date>.md` from it with the sensitive parts removed, say in the report that
@@ -169,11 +169,9 @@ Explicitly labeled as recommendations awaiting a human decision.
 
 Ledger status from Step 4: per entry — recorded version, latest upstream, version
 status (`current` / `update-available` / `unchecked`), local integrity (`unchanged` /
-`modified` / `missing` / `untracked` / `unknown`). Nothing about vulnerabilities: an entry
-with an open one looks like any other here; its advisories and its patch proposal are in
-the sensitive report. For `update-available` entries without an open vulnerability: the
-patch proposal built from `upstream-diff.sh` (what changed upstream, how it lands on our
-copy). If offline: **"Vendor check NOT performed (no network). Last successful check:
+`modified` / `missing` / `untracked` / `unknown`). Nothing about vulnerabilities and no
+patch proposals: every entry gets the same columns. Advisories and all patch proposals
+(from `upstream-diff.sh`) are in the sensitive report. If offline: **"Vendor check NOT performed (no network). Last successful check:
 <date>."** as a visible warning block, never a footnote.
 
 ## 8. Closed vulnerabilities (responsible disclosure)
@@ -363,7 +361,7 @@ Minimal valid shape (CycloneDX 1.5, JSON):
   "metadata": {
     "timestamp": "<ISO-8601>",
     "component": { "type": "application", "name": "<project>" },
-    "tools": [ { "name": "LifeLine", "version": "1.0.1" } ]
+    "tools": [ { "name": "LifeLine", "version": "1.0.2" } ]
   },
   "components": [
     {
@@ -399,8 +397,8 @@ Minimal valid shape (CycloneDX 1.5, JSON):
   ],
   "toolchain": [ { "kind": "ci-action|docker-image|build-tool", "name": "", "ref": "", "pinned": true } ],
   "assets": [ { "url": "", "kind": "cdn-script|font|model|dataset", "sri": false } ],
-  "services": [ { "host": "", "referencedIn": [], "credential": "", "impact": "" } ],
-  "vendored": [ { "name": "", "version": "", "status": "", "local": "", "lastChecked": "" } ],
+  "services": [ { "host": "", "referencedIn": [], "credential": "" } ],
+  "vendored": [ { "name": "", "version": "", "versionStatus": "current|update-available|unchecked", "local": "", "lastChecked": "" } ],
   "findings": [ { "severity": "high|medium|info", "message": "" } ],
   "limits": [ "" ]
 }

@@ -60,7 +60,7 @@ latest=$(printf '%s' "$pkg_json" |
   sed -E 's/^"version":"([^"]*)".*/\1/')
 [ -n "$latest" ] || latest=unknown
 
-published=unknown; age=unknown; deprecated=no; licenses=unknown; repo=unknown
+published=unknown; age=unknown; deprecated=unknown; licenses=unknown; repo=unknown
 if [ "$latest" != unknown ]; then
   ver_json=$(curl -s --max-time 15 "https://api.deps.dev/v3/systems/$SYS/packages/$ENC/versions/$(urlenc "$latest")" 2>/dev/null)
   published=$(printf '%s' "$ver_json" | sed -n 's/.*"publishedAt":"\([0-9-]*\)T.*/\1/p' | head -1)
@@ -68,6 +68,8 @@ if [ "$latest" != unknown ]; then
   if printf '%s' "$ver_json" | grep -q '"isDeprecated":true'; then
     reason=$(printf '%s' "$ver_json" | sed -n 's/.*"deprecatedReason":"\([^"]*\)".*/\1/p' | head -1)
     deprecated="yes${reason:+: $reason}"
+  elif printf '%s' "$ver_json" | grep -q '"isDeprecated":false'; then
+    deprecated=no
   fi
   licenses=$(printf '%s' "$ver_json" | sed -n 's/.*"licenses":\[\([^]]*\)\].*/\1/p' | tr -d '"' | head -1)
   [ -n "$licenses" ] || licenses=unknown
