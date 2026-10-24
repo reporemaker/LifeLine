@@ -2,9 +2,13 @@
 # LifeLine: a machine-readable snapshot of everything the project depends on today.
 # One snapshot per run, saved by the skill as LifeLine_Report/state/<date>.tsv; comparing
 # snapshots (diff-state.sh, timeline.sh) is how changes over months are tracked.
-# Usage: snapshot-state.sh <project-root> [--deep]
+# Usage: snapshot-state.sh <project-root> [--deep]     full snapshot (PRIVATE: has vuln ids)
+#        snapshot-state.sh --public <private.tsv>        the same snapshot made safe to publish
 #   --deep: upstream health for transitive packages too (one request set per package -
 #           slow on large trees). Default: direct dependencies and vendored entries.
+#   --public: vulns column set to "-" (not collected), marked "# visibility: public".
+#           The full snapshot goes to LifeLine_Report/private/state/, the public one to
+#           LifeLine_Report/state/. Open vulnerabilities never leave private/.
 # Output (stdout, TSV): "#" meta lines, one header line, then one row per package:
 #   project ecosystem package version scope license install latest published
 #   deprecated archived maintainers publisher repo vulns local
@@ -14,6 +18,16 @@
 # Supported: npm lock files (needs node to read them), VENDORED.md. Everything else is
 # listed as a "# limit:" line - the report must repeat it.
 set -u
+
+if [ "${1:-}" = "--public" ]; then
+  [ -f "${2:-}" ] || { echo "usage: snapshot-state.sh --public <private.tsv>" >&2; exit 2; }
+  grep -q '^# visibility: private$' "$2" || { echo "ERROR|$2 is not a private snapshot" >&2; exit 1; }
+  awk -F'\t' -v OFS='\t' '
+    /^# visibility: / { print "# visibility: public"; next }
+    /^#/ || $1 == "project" { print; next }
+    { $15 = "-"; print }' "$2"
+  exit 0
+fi
 
 ROOT="${1:-}"
 DEEP=0
@@ -30,6 +44,7 @@ NET=1
 if ! command -v curl >/dev/null 2>&1 || ! curl -s --max-time 6 -o /dev/null "https://api.osv.dev" 2>/dev/null; then NET=0; fi
 
 echo "# LifeLine state v1"
+echo "# visibility: private"
 echo "# generated: $(date +%F)"
 echo "# project: $(basename "$(pwd -P)")"
 echo "# deep: $([ $DEEP -eq 1 ] && echo yes || echo no)"

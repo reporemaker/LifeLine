@@ -2,54 +2,92 @@
 
 Every file LifeLine writes goes into one folder at the project root, `LifeLine_Report/`
 (created when missing). File names inside are fixed and English. The folder is a
-history: the first report is kept for good, the latest report is always complete, and
-every run in between leaves a short record of what changed.
+history (the first report kept for good, the latest always complete, a short record of
+every run in between) and it is split in two:
+
+- **Public** — safe to commit and publish. What the project depends on, licenses,
+  health, history, and vulnerabilities that are already **closed**.
+- **Private** — `LifeLine_Report/private/`. Everything that would help an attacker
+  choose where to strike. **Never committed, never pushed, never published.** It goes
+  to the customer only, outside GitHub: USB stick, encrypted e-mail, or by hand.
 
 ```
 LifeLine_Report/
-├── dependency-report.md          latest full report - overwritten every run
-├── baseline-2026-10-24.md        first full report - written once, never touched again
-├── timeline.md                   long view per dependency - regenerated every run
+├── .gitignore                    written by LifeLine: "private/" - keeps it out of git
+├── dependency-report.md          PUBLIC latest full report - overwritten every run
+├── baseline-2026-10-24.md        PUBLIC first full report - written once, never touched again
+├── timeline.md                   PUBLIC long view per dependency (no vulnerability history)
 ├── changes/
-│   ├── 2026-11-24-changes.md     what changed in that run - important items only
-│   └── 2026-12-24-changes.md
-└── state/
-    ├── 2026-10-24.tsv            machine snapshot of every run, the first one included
-    ├── 2026-11-24.tsv
-    └── 2026-12-24.tsv
+│   └── 2026-11-24-changes.md     PUBLIC what changed in that run - important items only
+├── state/
+│   └── 2026-11-24.tsv            PUBLIC snapshot (vulns column "-")
+└── private/                      PRIVATE - never leaves the team and the customer
+    ├── sensitive-report.md       latest sensitive report
+    ├── baseline-2026-10-24-sensitive.md
+    ├── changes/2026-11-24-sensitive.md
+    ├── timeline-sensitive.md     vulnerability history per package
+    └── state/2026-11-24.tsv      full snapshot, vulnerability ids included
 ```
 
 | File | Written | Content |
 |---|---|---|
-| `dependency-report.md` | every run | full report (sections below) |
-| `baseline-<date>.md` | first run only | a copy of that run's full report; the reference point "since the start" |
-| `changes/<date>-changes.md` | every run after the first | not a full report: only what needs attention (format below) |
-| `timeline.md` | every run after the first | per dependency, every step of every important field across all runs (format below) |
-| `state/<date>.tsv` | every run | `snapshot-state.sh` output, saved as is - the data every comparison is made from |
-| `sbom.cdx.json`, `dependency-report.json` | only if the user picks them after the report | |
+| `.gitignore` | when missing | one line: `private/` |
+| `dependency-report.md` | every run | public full report (sections below) |
+| `baseline-<date>.md` | first run only | copy of that run's public report |
+| `changes/<date>-changes.md` | every run after the first | public change report (format below) |
+| `timeline.md` | every run after the first | public timeline (format below) |
+| `state/<date>.tsv` | every run | `snapshot-state.sh --public` of the private snapshot |
+| `private/sensitive-report.md` | every run | sensitive report (format below) |
+| `private/baseline-<date>-sensitive.md` | first run only | copy of that run's sensitive report |
+| `private/changes/<date>-sensitive.md` | every run after the first | sensitive changes: vulnerabilities opened/closed, new weak points |
+| `private/timeline-sensitive.md` | every run after the first | vulnerability steps per package from `timeline.sh private/state` |
+| `private/state/<date>.tsv` | every run | `snapshot-state.sh` output as is |
+| `sbom.cdx.json`, `dependency-report.json` | only if the user picks them | public content only |
+
+## What is sensitive
+
+One item alone is rarely a leak. Put together they read like a list of where it would
+hurt most to strike. These go to `private/` only, and the public report says nothing
+about them — **not even how many there are** (a count is a signal too):
+
+1. **Open vulnerabilities** — ids, affected packages and versions, which ones reach users.
+2. **Failure impact and resilience** — what breaks if a service disappears, single
+   points of failure, how backups are made, where they live, how often, recovery limits.
+3. **Secrets and access** — which secrets exist and what they unlock, bypass flags
+   (`SKIP_ACCESS`-style), access policies and the accounts in them, rate-limit thresholds.
+4. **Attack paths in the toolchain** — deploys or tools that run unpinned code
+   ("production is deployed with whatever `wrangler` is latest that day"), unpinned
+   install steps that run with the developer's rights.
+
+Not sensitive (stays public): host names and subdomains already in the repo, the list of
+services and that they need a credential, licenses, health, criticality, closed
+vulnerabilities.
 
 Rules:
 
 - `<date>` is the run date, `YYYY-MM-DD`. A second run on the same day appends `-2`,
-  `-3` (`state/2026-10-24-2.tsv`, `changes/2026-10-24-2-changes.md`). Nothing is ever
-  overwritten except `dependency-report.md` and `timeline.md`.
+  `-3`. Nothing is ever overwritten except `dependency-report.md`, `timeline.md`,
+  `private/sensitive-report.md` and `private/timeline-sensitive.md`.
 - Snapshots are taken on a full run and on `deps`; `map`, `services` and `vendored`
   runs read history but add nothing to it.
-- **Comparisons come from the snapshots, never from re-reading old Markdown.** Previous
-  run = the newest `state/*.tsv` before this one; baseline = the oldest.
+- **Comparisons come from the snapshots, never from re-reading old Markdown.** Public
+  reports compare public snapshots; private reports compare private ones. Previous run
+  = the newest snapshot before this one; baseline = the oldest.
+- **`.gitignore` first.** Before the first file goes into `private/`, make sure
+  `LifeLine_Report/.gitignore` contains `private/`. If the project's git already tracks
+  a file under `private/`, stop and tell the user — ignoring does not untrack.
 - **Migrating an older folder.** A `dependency-report.md` (or the pre-1.1
-  `docs/dependency-report.md`) without a `state/` folder: copy it to
-  `baseline-<its Generated date>.md` before writing anything, say in the report that
-  the baseline has no snapshot, and start `state/` with this run. The first change
-  report then appears on the next run.
-- Keep everything. Snapshots are small (a few hundred KB for a large tree); the history
-  is the point. Recommend committing the folder; never commit it yourself.
+  `docs/dependency-report.md`) without `state/`: it may contain sensitive items. Move it
+  to `private/baseline-<its Generated date>-sensitive.md`, write a public
+  `baseline-<date>.md` from it with the sensitive parts removed, say in the report that
+  the baseline has no snapshot, and start both `state/` folders with this run.
+- Keep everything. Recommend committing the public part; never commit anything yourself.
 
 `VENDORED.md` is the exception: it lives at the project root, next to the code it
 describes, because it is a ledger the team maintains, not a generated report.
 
 Structure and field names are stable across languages; prose follows the user's
-language. Sections of the full report, in order:
+language. Sections of the **public** full report, in order:
 
 ## 1. Header
 
@@ -79,10 +117,11 @@ One table for packages, one for toolchain, one for assets:
 `Last release` and the health part of `Risk signals` come from `upstream-health.sh`;
 `unknown` when it could not be checked (say why in Limits).
 
-Findings called out below the tables, each with severity:
-- 🔴 phantom dependency (imported, not declared) · copyleft license · known CVE ·
-  unpinned CI action / `latest` base image · CDN script without SRI · `curl | bash` in CI ·
-  vendored code changed without a `Modifications` note
+Findings called out below the tables, each with severity. Open vulnerabilities and
+unpinned deploy/tool paths are **not** listed here — they go to the sensitive report;
+the public report does not hint at them, not even with a count.
+- 🔴 phantom dependency (imported, not declared) · copyleft license ·
+  CDN script without SRI · vendored code changed without a `Modifications` note
 - 🟡 declared-but-unused · stale upstream (>2y) · deprecated · archived repo · single
   maintainer · install-time script (`preinstall`/`install`/`postinstall`) · unknown
   license · missing lock file · built-in replacement available
@@ -104,10 +143,12 @@ they lead the report summary. LOW×LOW items with unhealthy upstream feed Step 3
 ## 5. External Services
 
 ```markdown
-| Service | Referenced in | Credential | If it disappears |
-|---|---|---|---|
-| api.stripe.com | src/billing.ts, .env.example (STRIPE_KEY) | yes | payments stop |
+| Service | Referenced in | Credential |
+|---|---|---|
+| api.stripe.com | src/billing.ts, .env.example (STRIPE_KEY) | yes |
 ```
+
+"If it disappears", backups, single points of failure: sensitive report only.
 
 ## 6. Recommendations
 
@@ -126,30 +167,110 @@ Explicitly labeled as recommendations awaiting a human decision.
 
 ## 7. Vendor Tracking
 
-Ledger status from Step 4: per entry — recorded version, latest upstream, OSV result,
-status, local integrity (`unchanged` / `modified` / `missing` / `untracked`). For every
+Ledger status from Step 4: per entry — recorded version, latest upstream, status,
+local integrity. A `cve-warning` entry is shown as `see sensitive report` until fixed;
+the OSV ids go to the sensitive report only. Other fields: (`unchanged` / `modified` / `missing` / `untracked`). For every
 `update-available` / `cve-warning` entry: the patch proposal built from
 `upstream-diff.sh` (what changed upstream, how it lands on our copy). If offline: **"Vendor check NOT performed (no network). Last successful check:
 <date>."** as a visible warning block, never a footnote.
 
-## 8. Changes since last report (only when a previous snapshot exists)
+## 8. Closed vulnerabilities (responsible disclosure)
 
-Three to six bullets from `diff-state.sh <previous> <now>`: the high items, counts for
-the rest, and a link to `changes/<date>-changes.md`. The full report does not repeat
-the change report — it points to it.
+Every vulnerability that was found by an earlier run and is gone now, from
+`disclosure.sh LifeLine_Report/private/state` (`CLOSED` lines only — `OPEN` lines never
+appear in a public file). Cumulative: the whole record, newest closures first.
 
-## 9. Limits of This Analysis
+```markdown
+| Advisory | Package | Project | Found | Closed | Days open |
+|---|---|---|---|---|---|
+| GHSA-xxxx-xxxx-xxxx | vite | `.` | 2026-10-24 | 2026-11-02 | 9 |
+```
+
+None closed yet → one line: "No vulnerability has been closed yet." Never add anything
+that hints at open ones.
+
+## 9. Changes since last report (only when a previous snapshot exists)
+
+Three to six bullets from `diff-state.sh` on the two newest **public** snapshots, plus
+vulnerabilities closed in this run, and a link to `changes/<date>-changes.md`.
+
+## 10. Limits of This Analysis
 
 Always present. State concretely: dynamic imports not traced; ecosystems analyzed
 without their native tool (incomplete transitive sets); CVE scan availability;
 import-name mappings that were guessed.
 
+## 11. Sensitive report
+
+Always the last section, always in this wording (translated to the report language):
+
+```markdown
+## Sensitive report
+
+A sensitive report was produced in this run. It is not part of this repository and is
+delivered to the customer outside GitHub.
+
+Generated: 2026-11-24 · sha256: 3f2a…c9e1
+```
+
+The hash is `check-vendored.sh --hash <root> LifeLine_Report/private/sensitive-report.md`.
+The recipient computes the same hash on the file they received; equal hashes prove it is
+the file from this run, unchanged. Nothing else about its content is stated here.
+
 ---
 
-# Change Report — `changes/<date>-changes.md`
+# Sensitive Report — `private/sensitive-report.md`
+
+Starts with this notice, always, verbatim in English and then in the report language:
+
+```markdown
+> **CONFIDENTIAL — DO NOT COMMIT, DO NOT PUSH, DO NOT PUBLISH.**
+>
+> This file lists the open weak points of <project>: unfixed vulnerabilities, what
+> breaks when a service disappears, how backups and secrets are handled, and which
+> tools run unpinned code. None of these is a leak on its own. Put together, they read
+> like a map of where an attack would hurt most.
+>
+> Keep it out of every repository, issue tracker, chat and shared drive. Deliver it to
+> the customer only: on a USB stick, by encrypted e-mail, or by hand. It is listed in
+> `LifeLine_Report/.gitignore` so git skips it — check that before every commit.
+```
+
+Then:
+
+```markdown
+# Sensitive Report — <project>
+Generated: <date> · Belongs to: LifeLine_Report/dependency-report.md of the same date
+
+## Open vulnerabilities
+| Advisory | Package | Project | Scope | Found | Days open | Reaches users? | Fix |
+
+## Failure impact and resilience
+| Service | If it disappears | Backup / recovery |
+<single points of failure, backup method and limits>
+
+## Secrets and access
+<secrets and what they unlock, bypass flags, access policies, thresholds>
+
+## Attack paths in the toolchain
+<unpinned deploys and tools, install steps with developer rights>
+
+## What to do first
+<ordered list>
+```
+
+Sensitive change report (`private/changes/<date>-sensitive.md`): the same notice, then
+vulnerabilities opened and closed since the previous run (`diff-state.sh` on the two
+newest private snapshots, `vulns` lines) and any new item in the four sensitive groups.
+
+---
+
+# Change Report — `changes/<date>-changes.md` (public)
 
 Short and selective: a reader should see in a minute whether anything needs action.
-Built from `diff-state.sh` (previous → now, baseline → now) and `timeline.sh`.
+Built from `diff-state.sh` on **public** snapshots (previous → now, baseline → now),
+`timeline.sh LifeLine_Report/state`, and the `CLOSED` lines of `disclosure.sh` for this
+run. Open vulnerabilities never appear here; closed ones do, with their dates.
 
 ```markdown
 # Change Report — <project> — <date>
@@ -170,10 +291,14 @@ catches slow changes that never looked big from one month to the next.>
 
 ## Ongoing changes
 <for every package that has an important timeline (maintainers, publisher, repo,
-license, install, archived, deprecated, scope, vulns), its steps from timeline.sh:>
+license, install, archived, deprecated, scope, local), its steps from timeline.sh:>
 - `event-pipe` maintainers: alice (2022-10) → alice, bob (2023-10) → bob (2024-10) →
   bob, gina (2025-10) → gina (2026-10). Publisher alice → bob → gina. Repository moved
   twice. Install script since 2025-10. Reads as a full handover; check the 2025 release.
+
+## Closed vulnerabilities
+<CLOSED lines of disclosure.sh whose closed-on is this run: advisory, package, found,
+closed, days open. "None closed in this run." otherwise. Never anything about open ones.>
 
 ## Quiet
 <one line: "<n> packages unchanged since the previous run.">
@@ -185,9 +310,10 @@ license, install, archived, deprecated, scope, vulns), its steps from timeline.s
 Severity mapping: `high` → 🔴, `medium` → 🟡, `info` → ⚪.
 
 What counts as high (from `diff-state.sh`): a maintainer handover (some left, some
-joined), a publisher who was not a maintainer before, a new install script, a new
-known vulnerability, a license turning copyleft, a vendored copy modified or missing, a
-new package that runs an install script.
+joined), a publisher who was not a maintainer before, a new install script, a license
+turning copyleft, a vendored copy modified or missing, a new package that runs an install
+script. A new known vulnerability is high too, but it is reported in the private change
+report only.
 
 # Timeline — `timeline.md`
 
@@ -205,13 +331,13 @@ Runs: <n> · <first date> → <last date>
 | publisher | 2022-10-24 alice → 2024-10-24 bob → 2025-10-24 gina |
 | repo | github.com/alice/… → 2024-10-24 github.com/bob/… → 2026-10-24 github.com/gina/… |
 | install | 2022-10-24 no → 2025-10-24 yes |
-| vulns | 2022-10-24 none → 2026-10-24 GHSA-… |
 
 Reading: <one or two sentences — what the steps add up to.>
 ```
 
 - Important fields: maintainers, publisher, repo, license, install, archived, deprecated,
-  scope, vulns, local. `version` and `latest` only for direct and vendored packages.
+  scope, local. Vulnerability history (`vulns`) is in `private/timeline-sensitive.md`
+  only — the public snapshots do not even contain it. `version` and `latest` only for direct and vendored packages.
 - Packages that came or went (`PRESENCE` lines) get a line each in a final
   "Arrivals and departures" section; runtime arrivals first.
 - Gaps (`-`, `unknown`) are not steps. A field that could not be collected in some runs
@@ -253,6 +379,7 @@ Minimal valid shape (CycloneDX 1.5, JSON):
 - `purl` prefixes: `pkg:npm/`, `pkg:pypi/`, `pkg:golang/`, `pkg:cargo/`, `pkg:maven/<group>/`,
   `pkg:composer/`, `pkg:gem/`, `pkg:nuget/`, `pkg:docker/`, `pkg:github/<owner>/<repo>@<ref>`
   (use `pkg:github` for CI actions and vendored entries).
+- Public content only: no vulnerability data in the SBOM or the JSON export.
 - Include vendored code from `VENDORED.md` as components with
   `"properties": [{ "name": "lifeline:vendored", "value": "true" }]`.
 - `scope`: `"required"` for runtime deps, `"optional"` for dev/build.

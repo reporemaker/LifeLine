@@ -10,12 +10,14 @@ description: >-
   replacements, advises on vendoring only the used part with a mandatory license gate,
   maintains a VENDORED.md ledger with upstream update, CVE, local-change tracking and
   patch help, and keeps a dated history (baseline, change reports, per-dependency
-  timeline) so slow changes such as a maintainer handover show up across runs.
+  timeline) so slow changes such as a maintainer handover show up across runs. Splits
+  every report into a public part and a private part (open vulnerabilities, failure
+  impact, secrets, attack paths) that is never committed and goes to the customer only.
   Use when asked to list dependencies, audit the supply chain, generate an SBOM,
   map external services, check vendored code, or assess how dependent a project is
   on outside code.
 argument-hint: "[map|deps|services|vendored]"
-allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/snapshot-state.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/diff-state.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/timeline.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/find-manifests.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/scan-imports.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/check-vendored.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-health.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/measure-package.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/used-api.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-diff.sh *)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/snapshot-state.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/disclosure.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/diff-state.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/timeline.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/find-manifests.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/scan-imports.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/check-vendored.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-health.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/measure-package.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/used-api.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-diff.sh *)
 ---
 
 # LifeLine — External Dependency Audit & Tracking
@@ -93,7 +95,9 @@ lock-file fallbacks, and import patterns. Then build the inventory:
    says `OFFLINE`; put that in Limits, do not guess the fields.
    Known CVEs:
    use `npm audit` / `pip-audit` / `osv-scanner` **only if already installed**; otherwise
-   note "CVE scan not available in this environment" in the report.
+   note "CVE scan not available in this environment" in the report. Open
+   vulnerabilities are **sensitive**: they go to `private/sensitive-report.md` only
+   (see Report); the public report does not mention them, not even as a count.
 7. **Criticality score** — for each direct dependency, apply the rubric in
    [references/report-format.md](references/report-format.md): usage breadth (how many
    modules import it) × replaceability (how much of its API surface is used). This answers
@@ -109,8 +113,9 @@ Everything the project needs at runtime that is not code in the repo:
 - **Databases / queues / caches** — connection configs, ORM settings, client SDK usage.
 - **SaaS integrations** — auth providers, payment, email, telemetry, error tracking SDKs.
 
-Deliverable: a table — service, where it is referenced, credential required, and
-**what breaks if this service disappears**.
+Deliverable: a table — service, where it is referenced, credential required (public),
+and **what breaks if this service disappears**, backups and recovery, secrets and access
+details (sensitive report only).
 
 ## Step 3 — Recommendations & Vendoring Advisor
 
@@ -164,7 +169,8 @@ The step that makes sure copied-in code is never forgotten.
    goes into the report but is never written to the ledger — the last known `Status`
    stays, and `Last-Checked` visibly ages.
 3. Findings go into the report's **Vendor Tracking** section: update available,
-   CVE warning, local modification, or all current.
+   CVE warning (advisory ids in the sensitive report only), local modification, or all
+   current.
    **Patch help** — for every `update-available` or `cve-warning` entry run
    `${CLAUDE_SKILL_DIR}/scripts/upstream-diff.sh <root> <entry> [target-version]`.
    It writes `upstream.diff` (recorded → target) and `local.diff` (recorded → our copy)
@@ -182,36 +188,54 @@ The step that makes sure copied-in code is never forgotten.
 ## Report
 
 Everything goes into `LifeLine_Report/` at the project root (create it if missing; file
-names are always English). The folder is a history, laid out in
-[references/report-format.md](references/report-format.md):
-the first full report kept for good, the latest full report, a short change report per
-run, a timeline per dependency, and a machine snapshot per run.
+names are always English), laid out in [references/report-format.md](references/report-format.md).
+It is a history, and it is split:
+
+- **public** files — safe to commit: full report, baseline, change reports, timeline,
+  public snapshots, closed vulnerabilities;
+- **`private/`** — open vulnerabilities, failure impact and backups, secrets and access,
+  unpinned deploy/tool paths. **Never committed, never pushed, never published**; the
+  customer gets it outside GitHub (USB stick, encrypted e-mail, by hand). The public
+  files say nothing about it — no counts, no hints — except the seal (date + sha256).
 
 On a full run (and on `deps`):
 
-1. **Snapshot.** Run `${CLAUDE_SKILL_DIR}/scripts/snapshot-state.sh <root>` and save its
-   output unchanged as `LifeLine_Report/state/<date>.tsv` (`<date>-2.tsv` for a second run
-   that day). Repeat every `# limit:` line in the report's Limits.
-2. **Find the history.** Previous = newest other file in `state/`; baseline = oldest.
-   No `state/` but an older `dependency-report.md` (or `docs/dependency-report.md`)?
-   Migrate first: copy it to `baseline-<its Generated date>.md`, then continue as a
-   first run with that baseline.
-3. **Full report.** Write `dependency-report.md` (sections: Context Map → External Code
-   Inventory → External Services → Recommendations → Vendor Tracking → Changes since last
-   report → Limits of This Analysis). On the very first run also save the same content
-   as `baseline-<date>.md`; never write to a baseline again.
-4. **Change report** (every run after the first).
-   `${CLAUDE_SKILL_DIR}/scripts/diff-state.sh <previous.tsv> <now.tsv>` and
-   `diff-state.sh <baseline.tsv> <now.tsv>`, then `${CLAUDE_SKILL_DIR}/scripts/timeline.sh LifeLine_Report/state`.
-   Write `changes/<date>-changes.md`: what needs attention, what changed since the previous
-   run, what is different from the baseline, and the ongoing changes that span several
-   runs (a maintainer handover over years shows up here as its steps, not as one jump).
-   Only important items — this is not a second full report.
-5. **Timeline.** Regenerate `timeline.md` from the `timeline.sh` output.
+1. **Guard first.** Make sure `LifeLine_Report/.gitignore` contains `private/` (create it).
+   If git already tracks anything under `LifeLine_Report/private/`, stop and tell the user.
+2. **Snapshot.** `${CLAUDE_SKILL_DIR}/scripts/snapshot-state.sh <root>` → save as is to
+   `private/state/<date>.tsv` (`<date>-2.tsv` for a second run that day). Then
+   `snapshot-state.sh --public private/state/<date>.tsv` → `state/<date>.tsv`.
+   Repeat every `# limit:` line in the report's Limits.
+3. **Find the history.** Previous = newest other snapshot, baseline = oldest — public
+   snapshots for public reports, private ones for private reports. No `state/` but an
+   older report? Migrate it as report-format.md describes (it may hold sensitive items).
+4. **Disclosure.** `${CLAUDE_SKILL_DIR}/scripts/disclosure.sh LifeLine_Report/private/state`:
+   `CLOSED` lines may be published (Closed vulnerabilities section); `OPEN` lines go to
+   the sensitive report only.
+5. **Sensitive report.** Write `private/sensitive-report.md`, starting with the
+   confidentiality notice from report-format.md, verbatim. On the first run also copy it
+   to `private/baseline-<date>-sensitive.md`.
+6. **Public full report.** Write `dependency-report.md` (Context Map → External Code
+   Inventory → External Services → Recommendations → Vendor Tracking → Closed
+   vulnerabilities → Changes since last report → Limits → Sensitive report seal). Nothing
+   from the four sensitive groups, not even a count. On the first run also save it as
+   `baseline-<date>.md`; never write to a baseline again.
+7. **Change reports** (every run after the first). Public: `diff-state.sh` on public
+   snapshots (previous → now, baseline → now) and `timeline.sh LifeLine_Report/state` →
+   `changes/<date>-changes.md`: what needs attention, what changed, what differs from the
+   baseline, ongoing changes over several runs, vulnerabilities closed in this run.
+   Private: `diff-state.sh` on private snapshots → `private/changes/<date>-sensitive.md`
+   (vulnerabilities opened and closed, new weak points). Only important items.
+8. **Timelines.** `timeline.md` from `timeline.sh LifeLine_Report/state`;
+   `private/timeline-sensitive.md` from `timeline.sh LifeLine_Report/private/state`
+   (the vulnerability steps).
+9. **Check before you finish.** `grep` every public file for each `OPEN` advisory id and
+   for the sensitive details you wrote into `private/`. Any hit is a bug — move it to
+   `private/` before answering.
 
 Comparisons always come from the snapshots, never from re-reading old Markdown. Never
-overwrite a baseline, a change report or a snapshot. Never commit the folder yourself;
-recommend that the team does.
+overwrite a baseline, a change report or a snapshot. Never commit anything yourself;
+recommend committing the public part, and remind the user how `private/` is delivered.
 
 ## After the Report — Output Format Question
 

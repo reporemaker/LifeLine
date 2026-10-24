@@ -1,3 +1,6 @@
 # Yerel notlar, depoya girmez
 nogit/
 .DS_Store
+
+# Skill kendi üzerinde çalışırsa raporu depoya girmesin (indirenler gereksiz dosya almasın)
+LifeLine_Report/

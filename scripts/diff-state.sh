@@ -7,10 +7,14 @@
 #   SUMMARY|added|removed|changed|high|medium
 # A field that is "-" or "unknown" on either side was not collected and is never a change.
 # Rows of one package in one project (several installed versions) are merged first.
+# Compare like with like: two public snapshots (for public reports) or two private ones
+# (for the private change report). Mixing them is refused.
 set -u
 
 OLD="${1:-}"; NEW="${2:-}"
 [ -f "$OLD" ] && [ -f "$NEW" ] || { echo "usage: diff-state.sh <old.tsv> <new.tsv>" >&2; exit 2; }
+vis() { sed -n 's/^# visibility: //p' "$1" | head -1; }
+[ "$(vis "$OLD")" = "$(vis "$NEW")" ] || { echo "ERROR|one snapshot is public, the other private - compare like with like" >&2; exit 2; }
 
 awk -F'\t' '
   # Days since 0000-03-01 for a YYYY-MM-DD date (portable: no mktime in BSD awk).

@@ -38,6 +38,7 @@ LifeLine would not have found the xz backdoor; no tool did. What it does is show
 - **Vendors only what you use**, after a mandatory license gate (copyleft is never recommended), and only with your approval.
 - **Tracks vendored code** in a `VENDORED.md` ledger: upstream updates, known CVEs ([osv.dev](https://osv.dev)), and a checksum that catches any change to the copy.
 - **Helps patch it:** when upstream fixes something, it diffs the old and new version against your copy and proposes the patch.
+- **Keeps the dangerous part private:** open vulnerabilities and weak points go to a separate report that never enters git. Closed vulnerabilities are published, with the dates they were found and fixed.
 
 It audits, measures and advises. It changes your project only when you say yes.
 
@@ -69,18 +70,24 @@ Claude also picks the skill up on its own when you ask things like *"list this p
 
 ## Reports and history
 
-Everything goes into a `LifeLine_Report/` folder at the project root, and the folder keeps the history:
+Everything goes into a `LifeLine_Report/` folder at the project root. The folder keeps the history, and it is split in two:
 
 ```
 LifeLine_Report/
+├── .gitignore                    "private/" - written by LifeLine
 ├── dependency-report.md          latest full report
 ├── baseline-2026-10-24.md        first full report, kept for good
 ├── timeline.md                   every dependency's changes across all runs
 ├── changes/2026-11-24-changes.md what changed in that run, important items only
-└── state/2026-11-24.tsv          machine snapshot of each run
+├── state/2026-11-24.tsv          snapshot of each run
+└── private/                      NEVER on GitHub
+    ├── sensitive-report.md       open vulnerabilities and weak points
+    └── …                         its baseline, changes, timeline and snapshots
 ```
 
-The latest report is always complete. Each later run also writes a short change report: what needs attention, what changed since the previous run, what is different from the first report, and changes that build up over many runs. A library maintained by *A* four years ago and by *G* today shows up as every step in between, not as one surprise. Commit the folder and the history travels with the repo.
+**Public part.** The latest report is always complete. Each later run also writes a short change report: what needs attention, what changed since the previous run, what is different from the first report, and changes that build up over many runs. A library maintained by *A* four years ago and by *G* today shows up as every step in between, not as one surprise. Vulnerabilities that have been fixed are listed with the dates they were found and closed. Commit this part and the history travels with the repo.
+
+**Private part.** Open vulnerabilities, what breaks when a service disappears, how backups and secrets are handled, which tools run unpinned code. None of it is a leak on its own; together it reads like a map of where an attack would hurt most. So it stays in `private/`, which LifeLine keeps out of git, and the public report says nothing about it, not even how many items it holds. It goes to the customer only, outside GitHub: on a USB stick, by encrypted e-mail, or by hand. The public report ends with the date and a sha256 hash of it, so the customer can check that the file they received is the one from that run.
 
 ## Notes
 

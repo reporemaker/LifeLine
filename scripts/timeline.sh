@@ -19,8 +19,11 @@ DIR="${1:-}"
 set -- "$DIR"/*.tsv
 [ -f "$1" ] || { echo "RUNS|0|-|-"; exit 0; }
 
-# File names sort by date (2026-10-24.tsv, 2026-10-24-2.tsv, 2026-11-24.tsv).
-printf '%s\n' "$@" | LC_ALL=C sort | tr '\n' '\0' | xargs -0 awk -F'\t' '
+# Run order: date, then same-day suffix (2026-10-24, 2026-10-24-2, 2026-10-24-10).
+# A plain byte sort would put 2026-10-24-2.tsv before 2026-10-24.tsv ('-' < '.').
+printf '%s\n' "$@" | awk '{ b = $0; sub(/^.*\//, "", b); sub(/\.tsv$/, "", b); n = split(b, f, "-")
+  printf "%s\t%s\t%s\t%s\t%s\n", f[1], f[2], f[3], (n > 3 ? f[4] : 0), $0 }' |
+  LC_ALL=C sort -t "$(printf '\t')" -k1,1n -k2,2n -k3,3n -k4,4n | cut -f5 | tr '\n' '\0' | xargs -0 awk -F'\t' '
   function addset(cur, val,   n, a, i) {
     if (val == "-" || val == "unknown" || val == "") return cur
     if (cur == "") return val
