@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lifeline: scan the raw import + external URL surface of a project.
+# LifeLine: scan the raw import + external URL surface of a project.
 # Usage: scan-imports.sh [project-root]
 # Output (tab-separated): LANG<TAB>module<TAB>occurrence-count, plus URL/ASSET lines.
 # This is a raw surface scan — the skill interprets and filters the output.

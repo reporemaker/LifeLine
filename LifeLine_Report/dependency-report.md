@@ -1,4 +1,4 @@
-# Dependency Report — lifeline
+# Dependency Report — LifeLine
 Generated: 2026-10-24 · Scope: full
 Ecosystems: none (bash + markdown) · Previous report: 2026-07-28
 

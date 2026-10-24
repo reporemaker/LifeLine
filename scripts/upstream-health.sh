@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lifeline: how alive is a dependency upstream? Latest release, its age, deprecation,
+# LifeLine: how alive is a dependency upstream? Latest release, its age, deprecation,
 # maintainers, source repo, archived flag, install-time scripts.
 # Usage: upstream-health.sh <ecosystem> <package>
 #   ecosystem: npm | PyPI | crates.io | Go | Maven | NuGet  (OSV names, any case)

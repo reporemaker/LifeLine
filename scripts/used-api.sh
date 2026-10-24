@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lifeline: which parts of a package does the project actually use?
+# LifeLine: which parts of a package does the project actually use?
 # The input for "vendor only what is used": the exported names and members the
 # project's own code touches, per file.
 # Usage: used-api.sh <project-root> <package>

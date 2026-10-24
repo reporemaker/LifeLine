@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lifeline: discover every dependency surface in a project tree.
+# LifeLine: discover every dependency surface in a project tree.
 # Usage: find-manifests.sh [project-root]
 # Output: CATEGORY<TAB>relative-path  (MANIFEST | LOCK | CI | CONTAINER | LEDGER)
 set -u

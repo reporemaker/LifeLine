@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lifeline: check every VENDORED.md ledger entry for upstream updates and known CVEs.
+# LifeLine: check every VENDORED.md ledger entry for upstream updates and known CVEs.
 # Usage: check-vendored.sh [project-root]
 #        check-vendored.sh --hash <project-root> <location>   checksum for a new entry
 # Output lines:

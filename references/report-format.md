@@ -1,6 +1,6 @@
 # Report Format Reference
 
-Every file lifeline writes goes into one folder at the project root, `LifeLine_Report/`
+Every file LifeLine writes goes into one folder at the project root, `LifeLine_Report/`
 (created when missing). File names inside are fixed and English:
 
 | File | When |
@@ -125,7 +125,7 @@ Minimal valid shape (CycloneDX 1.5, JSON):
   "metadata": {
     "timestamp": "<ISO-8601>",
     "component": { "type": "application", "name": "<project>" },
-    "tools": [ { "name": "lifeline", "version": "1.0.0" } ]
+    "tools": [ { "name": "LifeLine", "version": "1.1.0" } ]
   },
   "components": [
     {

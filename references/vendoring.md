@@ -34,9 +34,9 @@ built-in for it, deleting the dependency beats copying it.
 ## The trade-off — always state it
 
 Vendored code **stops receiving upstream patches**. A CVE published after vendoring will
-not arrive via `npm audit`/Dependabot — nothing watches copied code except the lifeline
+not arrive via `npm audit`/Dependabot — nothing watches copied code except the LifeLine
 ledger. Every vendoring recommendation must carry this sentence in substance:
-*"After vendoring, VENDORED.md + lifeline's Step 4 is the only thing standing between
+*"After vendoring, VENDORED.md + LifeLine's Step 4 is the only thing standing between
 this code and silent rot."*
 
 ## Alternatives — present alongside every candidate
@@ -99,7 +99,7 @@ machine-parsed by `scripts/check-vendored.sh` — keep the exact `- Key: value` 
 # VENDORED.md — Vendored Code Ledger
 
 Code copied into this repo from outside. Every entry is checked for upstream updates
-and CVEs by the lifeline skill (Step 4). Do not remove entries whose code still exists.
+and CVEs by the LifeLine skill (Step 4). Do not remove entries whose code still exists.
 
 ## left-pad
 - Source: https://github.com/stevemao/left-pad

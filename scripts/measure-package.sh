@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lifeline: measure an installed dependency - how much code it is, how much of it is
+# LifeLine: measure an installed dependency - how much code it is, how much of it is
 # reachable from its entry point, and how many packages it drags in.
 # Usage: measure-package.sh <project-root> <package>
 # Output lines:

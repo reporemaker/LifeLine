@@ -17,16 +17,16 @@ argument-hint: "[map|deps|services|vendored]"
 allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/find-manifests.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/scan-imports.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/check-vendored.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-health.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/measure-package.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/used-api.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-diff.sh *)
 ---
 
-# lifeline — External Dependency Audit & Tracking
+# LifeLine — External Dependency Audit & Tracking
 
 Every project survives on things it does not own: open-source packages, base images,
-CI actions, CDN assets, third-party APIs, and code copied in from elsewhere. lifeline
+CI actions, CDN assets, third-party APIs, and code copied in from elsewhere. LifeLine
 finds all of them, shows which ones truly hold the project hostage, and makes sure the
 copied-in ones are never forgotten.
 
 ## Principles (non-negotiable)
 
-1. **Audit and advise — never modify.** lifeline never vendors, removes, upgrades, or
+1. **Audit and advise — never modify.** LifeLine never vendors, removes, upgrades, or
    rewrites anything on its own. It produces a report and recommendations; the human decides.
 2. **Honest precision.** Static analysis misses dynamic imports (`importlib`, dynamic
    `import()`, reflection). Every report carries a "limits of this analysis" note.
@@ -35,7 +35,7 @@ copied-in ones are never forgotten.
    "vendor check NOT performed — last checked: <date>". Never skip silently.
 4. **Report in the user's language.** Section structure and field names stay stable;
    prose follows the language the user speaks.
-5. **Zero external dependence.** lifeline itself needs nothing beyond standard Unix tools.
+5. **Zero external dependence.** LifeLine itself needs nothing beyond standard Unix tools.
    Network calls (OSV, upstream checks) are optional enrichment, never a requirement.
 
 ## Invocation
@@ -156,7 +156,7 @@ The step that makes sure copied-in code is never forgotten.
    `modified` = someone changed vendored code after it was recorded — report it as a
    finding unless the entry's `Modifications` field explains it.
 2. Update each entry's `Last-Checked` date and `Status` field in `VENDORED.md`
-   (this ledger update is the one file lifeline is allowed to write besides the report).
+   (this ledger update is the one file LifeLine is allowed to write besides the report).
    Only after a successful check: `unchecked` (offline, OSV request failed, or no readable
    upstream — neither a registry covered by deps.dev nor a GitHub source) never counts as
    `current`. It
@@ -202,7 +202,7 @@ the Markdown report, ask exactly one question:
 Use the AskUserQuestion tool if available; otherwise ask in plain text. Generate the
 extra format only after the user chooses it (schemas in references/report-format.md).
 
-## Out of Scope — lifeline will NOT
+## Out of Scope — LifeLine will NOT
 
 - vendor, remove, upgrade, or pin anything without explicit user approval
 - generate application code or fix findings

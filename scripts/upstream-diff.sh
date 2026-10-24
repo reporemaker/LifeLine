@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lifeline: patch help for vendored code. Fetches the recorded upstream version and a
+# LifeLine: patch help for vendored code. Fetches the recorded upstream version and a
 # newer one, and writes two diffs so an update or CVE fix can be carried over by hand:
 #   upstream.diff  recorded version -> target version   (what changed upstream)
 #   local.diff     recorded version -> our vendored copy (what we changed locally)
