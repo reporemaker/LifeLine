@@ -125,4 +125,4 @@ Vulnerabilities that have been fixed are listed with the dates they were found a
 
 ---
 
-[RE\*maker](https://remaker.ch) // SEU // Emekulas // [SmartKraft](https://github.com/smrtkrft)
+[RE\*maker](https://remaker.ch) // SEU/Emekulas
