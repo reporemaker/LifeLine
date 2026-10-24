@@ -14,6 +14,9 @@ set -u
 OLD="${1:-}"; NEW="${2:-}"
 [ -f "$OLD" ] && [ -f "$NEW" ] || { echo "usage: diff-state.sh <old.tsv> <new.tsv>" >&2; exit 2; }
 vis() { sed -n 's/^# visibility: //p' "$1" | head -1; }
+for f in "$OLD" "$NEW"; do
+  case "$(vis "$f")" in public|private) ;; *) echo "ERROR|$f has no '# visibility:' line - not a snapshot" >&2; exit 2 ;; esac
+done
 [ "$(vis "$OLD")" = "$(vis "$NEW")" ] || { echo "ERROR|one snapshot is public, the other private - compare like with like" >&2; exit 2; }
 
 awk -F'\t' '
@@ -67,7 +70,12 @@ awk -F'\t' '
   /^#/ {
     if ($0 ~ /^# generated: /) gen[side] = substr($0, 14)
     # "# limit: <lock path> ..." - that project was not read in this snapshot.
-    if ($0 ~ /^# limit: / && $0 !~ /OSV/) { lp = substr($0, 10); sub(/ .*/, "", lp); d = lp; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."; blind[side, d] = 1 }
+    # The path may contain spaces: cut at the message, not at the first space.
+    if ($0 ~ /^# limit: / && $0 !~ /OSV/) {
+      lp = substr($0, 10)
+      if (!sub(/ (not read|is lockfileVersion|not snapshotted)( .*)?$/, "", lp)) sub(/ .*/, "", lp)
+      d = lp; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."; blind[side, d] = 1
+    }
     next
   }
   $1 == "project" { next }

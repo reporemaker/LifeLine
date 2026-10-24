@@ -48,9 +48,14 @@ printf '%s\n' "$@" | awk '{ b = $0; sub(/^.*\//, "", b); sub(/\.tsv$/, "", b); n
   FNR == 1 { run++; date[run] = FILENAME; sub(/^.*\//, "", date[run]); sub(/\.tsv$/, "", date[run]); day[run] = substr(date[run], 1, 10); partial[run] = 0 }
   /^# online: no/ { partial[run] = 1; next }
   # "# limit: <lock path> ..." blinds the project of that lock file; an OSV failure blinds the run.
+  # The path may contain spaces: cut at the message, not at the first space.
   /^# limit: / {
     if ($0 ~ /OSV/) partial[run] = 1
-    else { lp = substr($0, 10); sub(/ .*/, "", lp); d = lp; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."; blindproj[run, d] = 1 }
+    else {
+      lp = substr($0, 10)
+      if (!sub(/ (not read|is lockfileVersion|not snapshotted)( .*)?$/, "", lp)) sub(/ .*/, "", lp)
+      d = lp; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."; blindproj[run, d] = 1
+    }
     next
   }
   /^#/ || $1 == "project" { next }
