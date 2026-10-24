@@ -15,7 +15,9 @@
 #       which the new value was first seen. Fields: version scope license install
 #       latest deprecated archived maintainers publisher repo vulns local
 #   PRESENCE|project|package|first-seen|last-seen|present|absent
-#       only for packages that were not there in every run
+#       only for packages that were not there in every run in which their project's
+#       lock file was read; a run with a "# limit: <lock path> ..." line for that
+#       project (node missing, unreadable lock) is not an absence
 # "-" and "unknown" are gaps in the data, not values: they never start a new step.
 set -u
 
@@ -44,6 +46,12 @@ printf '%s\n' "$@" | awk '{ b = $0; sub(/^.*\//, "", b); sub(/\.tsv$/, "", b); n
   function rank(s) { return s == "direct-runtime" ? 5 : s == "vendored" ? 4 : s == "direct-dev" ? 3 : s == "transitive-runtime" ? 2 : s == "" ? 0 : 1 }
   function put(f, v) { if (v != "-" && v != "unknown" && v != "") val[run, k, f] = v }
   FNR == 1 { run++; date[run] = FILENAME; sub(/^.*\//, "", date[run]); sub(/\.tsv$/, "", date[run]) }
+  # "# limit: <lock path> ..." - that project was not read in this run (path may contain spaces).
+  /^# limit: / && $0 !~ /OSV/ {
+    lp = substr($0, 10)
+    if (!sub(/ (not read|is lockfileVersion|not snapshotted)( .*)?$/, "", lp)) sub(/ .*/, "", lp)
+    d = lp; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."; blind[run, d] = 1; next
+  }
   /^#/ || $1 == "project" { next }
   {
     k = $1 SUBSEP $3 SUBSEP ($5 == "vendored" ? "v" : "p"); keys[k] = 1; seen[run, k] = 1
@@ -59,9 +67,14 @@ printf '%s\n' "$@" | awk '{ b = $0; sub(/^.*\//, "", b); sub(/\.tsv$/, "", b); n
     nf = split("version scope license install latest deprecated archived maintainers publisher repo vulns local", F, " ")
     for (k in keys) {
       split(k, p, SUBSEP); name = p[2] (p[3] == "v" ? " (vendored)" : "")
-      first = last = 0; present = 0
-      for (r = 1; r <= run; r++) if (seen[r, k]) { if (!first) first = r; last = r; present++ }
-      if (present < run) print "PRESENCE|" p[1] "|" name "|" date[first] "|" date[last] "|" present "|" run - present
+      # Vendored rows come from VENDORED.md, not from a lock file: never blind.
+      first = last = 0; present = 0; observed = 0
+      for (r = 1; r <= run; r++) {
+        if (p[3] != "v" && blind[r, p[1]]) continue
+        observed++
+        if (seen[r, k]) { if (!first) first = r; last = r; present++ }
+      }
+      if (present < observed) print "PRESENCE|" p[1] "|" name "|" date[first] "|" date[last] "|" present "|" observed - present
       for (i = 1; i <= nf; i++) {
         f = F[i]; line = ""; prev = ""; steps = 0
         for (r = 1; r <= run; r++) {
