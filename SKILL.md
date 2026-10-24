@@ -8,13 +8,14 @@ description: >-
   dependency is, checks licenses, upstream health and risk signals, measures what a
   package really costs (lines, reachable code, transitive weight), points to built-in
   replacements, advises on vendoring only the used part with a mandatory license gate,
-  and maintains a VENDORED.md ledger with upstream update, CVE, local-change tracking and
-  patch help.
+  maintains a VENDORED.md ledger with upstream update, CVE, local-change tracking and
+  patch help, and keeps a dated history (baseline, change reports, per-dependency
+  timeline) so slow changes such as a maintainer handover show up across runs.
   Use when asked to list dependencies, audit the supply chain, generate an SBOM,
   map external services, check vendored code, or assess how dependent a project is
   on outside code.
 argument-hint: "[map|deps|services|vendored]"
-allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/find-manifests.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/scan-imports.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/check-vendored.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-health.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/measure-package.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/used-api.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-diff.sh *)
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/snapshot-state.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/diff-state.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/timeline.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/find-manifests.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/scan-imports.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/check-vendored.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-health.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/measure-package.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/used-api.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-diff.sh *)
 ---
 
 # LifeLine — External Dependency Audit & Tracking
@@ -170,6 +171,8 @@ The step that makes sure copied-in code is never forgotten.
    to a temp dir. Read both and propose a concrete patch for the vendored copy: the
    upstream change, adapted around our local changes. Show the patch; apply it only with
    approval, and in the same change update `Version`, `Checksum` and `Last-Checked`.
+   Delete the `WORKDIR` it printed once the patch is proposed — it holds downloaded
+   third-party archives.
 4. **Offline**: add to the report — "Vendor check NOT performed (no network).
    Last successful check: <date>." Never silent.
 5. No `VENDORED.md`, but the scan found copied-in third-party code (foreign license
@@ -178,16 +181,37 @@ The step that makes sure copied-in code is never forgotten.
 
 ## Report
 
-Write the unified report to `LifeLine_Report/dependency-report.md` (create the folder at
-the project root if missing; file names in it are always English) following the template in
-[references/report-format.md](references/report-format.md). Sections: Context Map →
-External Code Inventory → External Services → Recommendations → Vendor Tracking →
-Limits of This Analysis.
+Everything goes into `LifeLine_Report/` at the project root (create it if missing; file
+names are always English). The folder is a history, laid out in
+[references/report-format.md](references/report-format.md):
+the first full report kept for good, the latest full report, a short change report per
+run, a timeline per dependency, and a machine snapshot per run.
 
-If a previous report exists — `LifeLine_Report/dependency-report.md`, or the pre-1.1
-location `docs/dependency-report.md` — read it **before overwriting** and
-include a **"Changes since last report"** section: dependencies added/removed,
-risk or criticality changes, resolved/new findings.
+On a full run (and on `deps`):
+
+1. **Snapshot.** Run `${CLAUDE_SKILL_DIR}/scripts/snapshot-state.sh <root>` and save its
+   output unchanged as `LifeLine_Report/state/<date>.tsv` (`<date>-2.tsv` for a second run
+   that day). Repeat every `# limit:` line in the report's Limits.
+2. **Find the history.** Previous = newest other file in `state/`; baseline = oldest.
+   No `state/` but an older `dependency-report.md` (or `docs/dependency-report.md`)?
+   Migrate first: copy it to `baseline-<its Generated date>.md`, then continue as a
+   first run with that baseline.
+3. **Full report.** Write `dependency-report.md` (sections: Context Map → External Code
+   Inventory → External Services → Recommendations → Vendor Tracking → Changes since last
+   report → Limits of This Analysis). On the very first run also save the same content
+   as `baseline-<date>.md`; never write to a baseline again.
+4. **Change report** (every run after the first).
+   `${CLAUDE_SKILL_DIR}/scripts/diff-state.sh <previous.tsv> <now.tsv>` and
+   `diff-state.sh <baseline.tsv> <now.tsv>`, then `${CLAUDE_SKILL_DIR}/scripts/timeline.sh LifeLine_Report/state`.
+   Write `changes/<date>-changes.md`: what needs attention, what changed since the previous
+   run, what is different from the baseline, and the ongoing changes that span several
+   runs (a maintainer handover over years shows up here as its steps, not as one jump).
+   Only important items — this is not a second full report.
+5. **Timeline.** Regenerate `timeline.md` from the `timeline.sh` output.
+
+Comparisons always come from the snapshots, never from re-reading old Markdown. Never
+overwrite a baseline, a change report or a snapshot. Never commit the folder yourself;
+recommend that the team does.
 
 ## After the Report — Output Format Question
 

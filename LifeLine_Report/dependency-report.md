@@ -9,7 +9,7 @@ Ecosystems: none (bash + markdown) · Previous report: 2026-07-28
 - **Modül yapısı:**
   - `SKILL.md` — skill akışı (giriş noktası)
   - `references/` — ecosystems.md, vendoring.md, replacements.md, report-format.md (talimat verisi, kod değil)
-  - `scripts/` — yedi bash betiği (çalışan kod)
+  - `scripts/` — on bash betiği (çalışan kod)
 - **Modül → dış bağımlılık haritası:**
 
 | Modül | Dış temas |
@@ -21,6 +21,9 @@ Ecosystems: none (bash + markdown) · Previous report: 2026-07-28
 | scripts/measure-package.sh | yok · node (opsiyonel, `exports` çözümü için) · python3 (opsiyonel, PyPI paketleri için) |
 | scripts/used-api.sh | yok (grep, sed, tr) |
 | scripts/upstream-diff.sh | curl → registry.npmjs.org, pypi.org, codeload.github.com, api.github.com · tar, diff |
+| scripts/snapshot-state.sh | curl → api.osv.dev (toplu sorgu) · node (opsiyonel, npm kilit dosyası için) · upstream-health.sh ve check-vendored.sh'yi çağırır |
+| scripts/diff-state.sh | yok (awk, sort, cut) |
+| scripts/timeline.sh | yok (awk, sort, xargs) |
 
 ## External Code Inventory
 
@@ -35,14 +38,14 @@ Araç zinciri (paket değil, çalışma zamanı gereksinimi):
 | tar, diff | yama yardımı için | upstream-diff.sh | betik hata satırı verir |
 | shasum / sha256sum / openssl | yerel değişiklik takibi için | check-vendored.sh | `local=unknown` |
 | curl | hayır | ağ kullanan dört betik | `OFFLINE` / `unchecked`, raporda beyan edilir |
-| node | hayır | measure-package.sh | `main` alanına düşer; `exports` haritası okunamaz |
+| node | hayır | measure-package.sh, snapshot-state.sh | measure: `main` alanına düşer; snapshot: npm kilit dosyası okunamaz, `# limit:` satırı yazılır |
 | python3 | hayır | measure-package.sh (PyPI) | `NOTFOUND` |
 
 ## External Services
 
 | Service | Referenced in | Credential | If it disappears |
 |---|---|---|---|
-| api.osv.dev | check-vendored.sh | hayır | CVE kontrolü yapılamaz → `unchecked` |
+| api.osv.dev | check-vendored.sh, snapshot-state.sh | hayır | CVE kontrolü yapılamaz → `unchecked`; anlık kayıtta `vulns` sütunu `-` |
 | api.deps.dev | check-vendored.sh, upstream-health.sh | hayır | son sürüm / yayın tarihi / deprecated bilgisi `unknown`; GitHub kaynaklı kayıtlar GitHub'a düşer |
 | registry.npmjs.org | upstream-health.sh, upstream-diff.sh | hayır | npm bakımcı sayısı ve kurulum betikleri `unknown`; npm yama farkı alınamaz |
 | pypi.org | upstream-diff.sh | hayır | PyPI yama farkı alınamaz |
@@ -64,7 +67,11 @@ da bulunmadı — betiklerin ve referansların tamamı özgün içerik.
 
 ## Changes since last report
 
-- Yeni betikler: upstream-health.sh, measure-package.sh, used-api.sh, upstream-diff.sh.
+- Yeni betikler: upstream-health.sh, measure-package.sh, used-api.sh, upstream-diff.sh;
+  geçmiş için snapshot-state.sh, diff-state.sh, timeline.sh.
+- Rapor klasörü artık geçmiş tutuyor: bu raporun temel çizgisi `baseline-2026-07-28.md`
+  (o çalıştırmanın anlık kaydı yok, yapı o tarihte henüz yoktu), ilk anlık kayıt
+  `state/2026-10-24.tsv`.
 - Yeni dış servisler (hepsi opsiyonel): api.deps.dev, registry.npmjs.org, pypi.org, codeload.github.com.
 - Yeni opsiyonel araçlar: node, python3 (ölçüm); tar, diff (yama); shasum ailesi (checksum).
 - Düzeltildi: OSV açıkları eksik sayılıyordu; GitHub dışı kaynaklar kontrol edilmeden

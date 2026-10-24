@@ -65,7 +65,22 @@ git clone https://github.com/reporemaker/LifeLine .claude/skills/lifeline
 /lifeline vendored   # vendor ledger check only
 ```
 
-Reports go to a `LifeLine_Report/` folder at the project root (`dependency-report.md`, plus an SBOM or JSON export if you ask for one). Claude also picks the skill up on its own when you ask things like *"list this project's dependencies"* or *"is our vendored code still safe?"*.
+Claude also picks the skill up on its own when you ask things like *"list this project's dependencies"* or *"is our vendored code still safe?"*.
+
+## Reports and history
+
+Everything goes into a `LifeLine_Report/` folder at the project root, and the folder keeps the history:
+
+```
+LifeLine_Report/
+├── dependency-report.md          latest full report
+├── baseline-2026-10-24.md        first full report, kept for good
+├── timeline.md                   every dependency's changes across all runs
+├── changes/2026-11-24-changes.md what changed in that run, important items only
+└── state/2026-11-24.tsv          machine snapshot of each run
+```
+
+The latest report is always complete. Each later run also writes a short change report: what needs attention, what changed since the previous run, what is different from the first report, and changes that build up over many runs. A library maintained by *A* four years ago and by *G* today shows up as every step in between, not as one surprise. Commit the folder and the history travels with the repo.
 
 ## Notes
 

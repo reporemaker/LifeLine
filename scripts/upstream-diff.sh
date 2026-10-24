@@ -6,7 +6,8 @@
 # Usage: upstream-diff.sh <project-root> <ledger-entry-name> [target-version]
 #   target defaults to the registry's latest (npm/PyPI) or the latest GitHub tag.
 # Output lines:
-#   WORKDIR|<dir>                           downloads + diffs live here (temp dir, never the project)
+#   WORKDIR|<dir>                           downloads + diffs live here (temp dir, never the project);
+#                                           left in place for reading - the caller deletes it
 #   FETCHED|recorded|target ,version, path
 #   UPSTREAM|<n-files-changed>|<dir>/upstream.diff
 #   LOCAL|<n-files-changed>|<dir>/local.diff

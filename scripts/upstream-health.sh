@@ -6,7 +6,9 @@
 # Output lines:
 #   OFFLINE|<reason>
 #   UNSUPPORTED|<ecosystem>|<package>
-#   HEALTH|eco|pkg|latest|published|age-days|deprecated|maintainers|repo|archived|install-scripts|licenses
+#   HEALTH|eco|pkg|latest|published|age-days|deprecated|maintainers|repo|archived|install-scripts|licenses|maintainer-names|publisher
+#     maintainer-names: npm account names, sorted, ";"-joined (never emails)
+#     publisher: the npm account that published the latest version
 # Unknown fields are "unknown", never guessed. Sources: api.deps.dev (all ecosystems),
 # registry.npmjs.org (npm only: maintainers, install scripts), api.github.com (archived).
 # Set GITHUB_TOKEN to lift GitHub's 60 requests/hour anonymous limit.
@@ -76,12 +78,17 @@ if [ "$latest" != unknown ]; then
 fi
 
 # npm only: maintainer count and install-time scripts, from the published manifest.
-maintainers=unknown; install=unknown
+maintainers=unknown; install=unknown; names=unknown; publisher=unknown
 if [ "$SYS" = npm ]; then
   man=$(curl -s --max-time 15 "https://registry.npmjs.org/$(printf '%s' "$PKG" | sed 's|/|%2F|')/latest" 2>/dev/null)
   if printf '%s' "$man" | grep -q '"name"'; then
     m=$(printf '%s' "$man" | sed -n 's/.*"maintainers":\[\([^]]*\)\].*/\1/p' | grep -o '"name"' | wc -l | tr -d ' \t')
     [ -n "$m" ] && [ "$m" -gt 0 ] && maintainers=$m
+    n=$(printf '%s' "$man" | sed -n 's/.*"maintainers":\[\([^]]*\)\].*/\1/p' |
+      grep -oE '"name":"[^"]*"' | sed 's/"name":"//; s/"$//' | LC_ALL=C sort -u | tr '\n' ';' | sed 's/;$//')
+    [ -n "$n" ] && names=$n
+    u=$(printf '%s' "$man" | sed -n 's/.*"_npmUser":{"name":"\([^"]*\)".*/\1/p' | head -1)
+    [ -n "$u" ] && publisher=$u
     scripts=$(printf '%s' "$man" | sed -n 's/.*"scripts":{\([^}]*\)}.*/\1/p')
     install=$(printf '%s' "$scripts" | grep -oE '"(preinstall|install|postinstall)"' | tr -d '"' | tr '\n' ',' | sed 's/,$//')
     [ -n "$install" ] || install=none
@@ -99,4 +106,4 @@ case "$repo" in
     ;;
 esac
 
-echo "HEALTH|$ECO|$PKG|$latest|$published|$age|$deprecated|$maintainers|$repo|$archived|$install|$licenses"
+echo "HEALTH|$ECO|$PKG|$latest|$published|$age|$deprecated|$maintainers|$repo|$archived|$install|$licenses|$names|$publisher"
