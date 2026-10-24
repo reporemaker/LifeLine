@@ -11,7 +11,7 @@ find . \
   \( -name node_modules -o -name .git -o -name vendor -o -name .venv -o -name venv \
      -o -name dist -o -name build -o -name target -o -name __pycache__ \) -prune -o \
   -type f \( \
-     -name package.json -o -name package-lock.json -o -name yarn.lock -o -name pnpm-lock.yaml -o -name bun.lockb \
+     -name package.json -o -name package-lock.json -o -name yarn.lock -o -name pnpm-lock.yaml -o -name bun.lock -o -name bun.lockb \
      -o -name pyproject.toml -o -name 'requirements*.txt' -o -name setup.py -o -name setup.cfg \
      -o -name Pipfile -o -name Pipfile.lock -o -name poetry.lock -o -name uv.lock \
      -o -name go.mod -o -name go.sum \
@@ -42,7 +42,7 @@ find . \
       printf 'CI\t%s\n' "$rel" ;;
     Dockerfile*|*.dockerfile|docker-compose*|devcontainer.json)
       printf 'CONTAINER\t%s\n' "$rel" ;;
-    package-lock.json|yarn.lock|pnpm-lock.yaml|bun.lockb|Pipfile.lock|poetry.lock|uv.lock|go.sum|Cargo.lock|gradle.lockfile|packages.lock.json|composer.lock|Gemfile.lock|Package.resolved|Podfile.lock|pubspec.lock|mix.lock)
+    package-lock.json|yarn.lock|pnpm-lock.yaml|bun.lock|bun.lockb|Pipfile.lock|poetry.lock|uv.lock|go.sum|Cargo.lock|gradle.lockfile|packages.lock.json|composer.lock|Gemfile.lock|Package.resolved|Podfile.lock|pubspec.lock|mix.lock)
       printf 'LOCK\t%s\n' "$rel" ;;
     VENDORED.md)
       printf 'LEDGER\t%s\n' "$rel" ;;

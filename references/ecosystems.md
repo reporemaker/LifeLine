@@ -12,7 +12,8 @@ Common rule for all ecosystems: prune `node_modules`, `.git`, `vendor`, `venv`/`
 
 - **Manifests**: `package.json` (deps in `dependencies`, `devDependencies`,
   `peerDependencies`, `optionalDependencies`). Workspaces field → monorepo, walk packages.
-- **Locks**: `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lockb` (binary — use manifest).
+- **Locks**: `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock` (text, Bun 1.2+),
+  `bun.lockb` (older binary — use manifest).
 - **Preferred**: `npm ls --all --json` (or `pnpm ls -r --json`, `yarn list --json`).
   CVE check if available: `npm audit --json`.
 - **Fallback**: direct deps from `package.json`; transitive count and pinned versions from
@@ -25,7 +26,8 @@ Common rule for all ecosystems: prune `node_modules`, `.git`, `vendor`, `venv`/`
 
 ## Python (pip, poetry, uv, pipenv)
 
-- **Manifests**: `pyproject.toml` (`[project.dependencies]`, `[tool.poetry.dependencies]`),
+- **Manifests**: `pyproject.toml` (`dependencies` and `[project.optional-dependencies]` under
+  `[project]`, `[tool.poetry.dependencies]`, `[dependency-groups]`),
   `requirements*.txt`, `setup.py`/`setup.cfg`, `Pipfile`.
 - **Locks**: `poetry.lock`, `uv.lock`, `Pipfile.lock`, fully-pinned `requirements.txt`.
 - **Preferred**: `pip list --format=json` in the project venv; tree: `pipdeptree --json`
