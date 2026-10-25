@@ -15,7 +15,7 @@ argument-hint: "[map|deps|services|vendored]"
 allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/snapshot-state.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/disclosure.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/diff-state.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/timeline.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/find-manifests.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/scan-imports.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/check-vendored.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-health.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/measure-package.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/used-api.sh *), Bash(${CLAUDE_SKILL_DIR}/scripts/upstream-diff.sh *)
 ---
 
-# LifeLine — External Dependency Audit & Tracking
+# LifeLine: External Dependency Audit & Tracking
 
 Every project survives on things it does not own: open-source packages, base images,
 CI actions, CDN assets, third-party APIs, and code copied in from elsewhere. LifeLine
@@ -24,13 +24,13 @@ copied-in ones are never forgotten.
 
 ## Principles (non-negotiable)
 
-1. **Audit and advise — never modify.** LifeLine never vendors, removes, upgrades, or
+1. **Audit and advise - never modify.** LifeLine never vendors, removes, upgrades, or
    rewrites anything on its own. It produces a report and recommendations; the human decides.
 2. **Honest precision.** Static analysis misses dynamic imports (`importlib`, dynamic
    `import()`, reflection). Every report carries a "limits of this analysis" note.
 3. **Graceful degradation, loud disclosure.** No ecosystem tool installed → fall back to
    reading lock files. No network → skip remote checks, but the report must state
-   "vendor check NOT performed — last checked: <date>". Never skip silently.
+   "vendor check NOT performed - last checked: <date>". Never skip silently.
 4. **Report in the user's language.** Section structure and field names stay stable;
    prose follows the language the user speaks.
 5. **Zero external dependence.** LifeLine itself needs nothing beyond standard Unix tools.
@@ -38,7 +38,7 @@ copied-in ones are never forgotten.
 
 ## Invocation
 
-`/lifeline [scope]` — no argument runs the **full audit** (all steps + report + ledger check).
+`/lifeline [scope]` - no argument runs the **full audit** (all steps + report + ledger check).
 
 | Argument | Scope |
 |---|---|
@@ -48,44 +48,51 @@ copied-in ones are never forgotten.
 | `vendored` | Step 4 only: vendor ledger check |
 | *(none)* | Steps 0–4, full report, ledger check |
 
-## Step 0 — Context Map
+## Step 0: Context Map
 
 The foundation every other step builds on.
 
 1. Run `${CLAUDE_SKILL_DIR}/scripts/find-manifests.sh <project-root>`.
    Output lines are `CATEGORY<TAB>path` with categories `MANIFEST`, `LOCK`, `CI`,
-   `CONTAINER`, `LEDGER`. Multiple ecosystems in one repo (monorepo) → analyze each.
+   `CONTAINER`, `TOOLCHAIN`, `LEDGER`. Multiple ecosystems in one repo (monorepo) → analyze each.
 2. Identify the project's modules, layers, and entry points by reading the tree and
-   key files (keep this proportionate — structure, not a full code review).
+   key files (keep this proportionate - structure, not a full code review).
 3. Run `${CLAUDE_SKILL_DIR}/scripts/scan-imports.sh <project-root>` to get the raw
    import and URL surface. Build the **module → external dependency map**: which module
    imports which outside package.
 
 Deliverable: ecosystem list + module map + import map. This feeds criticality scoring in Step 1.
 
-## Step 1 — External Code Inventory
+## Step 1: External Code Inventory
 
 Load [references/ecosystems.md](references/ecosystems.md) for per-ecosystem commands,
 lock-file fallbacks, and import patterns. Then build the inventory:
 
-1. **Declared dependencies** — from manifests and lock files. Prefer the ecosystem's own
+1. **Declared dependencies** - from manifests and lock files. Prefer the ecosystem's own
    tool (`npm ls`, `pip list`/`pipdeptree`, `go mod graph`, `cargo tree`, …); if absent,
    parse the lock file directly. Mark each as *direct* or *transitive*.
-2. **Actually used dependencies** — from the import scan. Cross-check against declared:
+2. **Actually used dependencies** - from the import scan. Cross-check against declared:
    - declared but never imported → *possibly removable*
    - imported but not declared → *phantom dependency* (works by accident; high risk)
-3. **Toolchain dependencies** — CI workflow `uses:` actions, Docker `FROM` images,
+3. **Toolchain dependencies** - CI workflow `uses:` actions, Docker `FROM` images,
    build tools and plugins. These are external code too and belong in the inventory.
-4. **Asset dependencies** — CDN scripts/styles/fonts in HTML/templates, downloaded
+   Read every `TOOLCHAIN` file too: a Gradle wrapper without `distributionSha256Sum`,
+   or a JDK the build downloads by itself (`gradle/gradle-daemon-jvm.properties` with
+   `toolchainUrl.*` lines, the `org.gradle.toolchains.foojay-resolver` plugin in the
+   settings script, `org.gradle.java.installations.auto-download=true`), fetches code
+   that no checksum pins. That is an attack path in the toolchain: sensitive report
+   only. IDEs write the daemon JVM file back on their own, so check it on every run,
+   not only once.
+4. **Asset dependencies** - CDN scripts/styles/fonts in HTML/templates, downloaded
    models or datasets (from the URL scan output).
-5. **Licenses** — one license per dependency in the table; flag copyleft (GPL/AGPL/SSPL)
+5. **Licenses** - one license per dependency in the table; flag copyleft (GPL/AGPL/SSPL)
    prominently. Unknown license = a finding, not a blank cell.
-6. **Risk signals** — per direct dependency, run
+6. **Risk signals** - per direct dependency, run
    `${CLAUDE_SKILL_DIR}/scripts/upstream-health.sh <ecosystem> <package>`
    (`HEALTH|eco|pkg|latest|published|age-days|deprecated|maintainers|repo|archived|install-scripts|licenses|maintainer-names|publisher`).
    Flag: latest release older than 2 years, deprecated, archived repo, a single
    maintainer, and **install-time scripts** (`preinstall`/`install`/`postinstall` run
-   code on every machine that installs the package — always list them). Also from the
+   code on every machine that installs the package - always list them). Also from the
    manifests: unpinned versions (`*`, `latest`, missing lock entry). Offline → the script
    says `OFFLINE`; put that in Limits, do not guess the fields.
    Known CVEs: `snapshot-state.sh` (Report step 2) already queries OSV for every package
@@ -93,34 +100,34 @@ lock-file fallbacks, and import patterns. Then build the inventory:
    if already installed. If OSV was not reachable, say so in Limits. Open
    vulnerabilities are **sensitive**: they go to `private/sensitive-report.md` only
    (see Report); the public report does not mention them, not even as a count.
-7. **Criticality score** — for each direct dependency, apply the rubric in
+7. **Criticality score** - for each direct dependency, apply the rubric in
    [references/report-format.md](references/report-format.md): usage breadth (how many
    modules import it) × replaceability (how much of its API surface is used). This answers
    the core question: *which dependency actually holds this project hostage?*
 
-## Step 2 — External Services
+## Step 2: External Services
 
 Everything the project needs at runtime that is not code in the repo:
 
 - **Endpoints**: external URLs in source/config (from the URL scan; ignore doc links).
 - **Environment variables** that point to outside systems: `*_URL`, `*_HOST`, `*_API_KEY`,
   `*_TOKEN`, `*_DSN`, connection strings. Check `.env.example`, config files, deploy manifests.
-- **Databases / queues / caches** — connection configs, ORM settings, client SDK usage.
-- **SaaS integrations** — auth providers, payment, email, telemetry, error tracking SDKs.
+- **Databases / queues / caches** - connection configs, ORM settings, client SDK usage.
+- **SaaS integrations** - auth providers, payment, email, telemetry, error tracking SDKs.
 
-Deliverable: a table — service, where it is referenced, credential required (public),
+Deliverable: a table - service, where it is referenced, credential required (public),
 and **what breaks if this service disappears**, backups and recovery, secrets and access
 details (sensitive report only).
 
-## Step 3 — Recommendations & Vendoring Advisor
+## Step 3: Recommendations & Vendoring Advisor
 
 Load [references/vendoring.md](references/vendoring.md). For each dependency worth acting on:
 
-0. **Built-in first** — match it against [references/replacements.md](references/replacements.md).
+0. **Built-in first** - match it against [references/replacements.md](references/replacements.md).
    If the language or runtime already does the job (`left-pad` → `padStart`), recommend
    deleting the dependency before any vendoring talk. Check the project's real minimum
    runtime first.
-1. **Vendoring candidates** — measure, do not estimate:
+1. **Vendoring candidates** - measure, do not estimate:
    - `${CLAUDE_SKILL_DIR}/scripts/measure-package.sh <root> <package>` → total code lines,
      lines **reachable from the entry file**, direct and transitive dependency count.
      The reachable figure is what vendoring would really copy; the transitive count is
@@ -132,19 +139,19 @@ Load [references/vendoring.md](references/vendoring.md). For each dependency wor
    upstream (Step 1 health). For each: bring-in cost (low/med/high), license verdict,
    security trade-off (vendored code stops receiving upstream patches).
    **Vendor only what is used**: the copy is the used exports plus what they call inside
-   the package — not the whole package (procedure in references/vendoring.md).
-2. **License gate — mandatory.** Permissive (MIT/BSD/Apache/ISC) → vendorable with
+   the package - not the whole package (procedure in references/vendoring.md).
+2. **License gate - mandatory.** Permissive (MIT/BSD/Apache/ISC) → vendorable with
    attribution. Copyleft (GPL/AGPL/SSPL) → **do not recommend vendoring**; state the
    contamination risk explicitly.
 3. **Always present the alternatives** next to every vendoring suggestion:
    pin the version · fork under the user's org · rewrite the needed few lines and drop
    the dependency entirely (often the cleanest option for micro-packages).
-4. **Never vendor automatically.** If — and only if — the user explicitly approves a
+4. **Never vendor automatically.** If - and only if - the user explicitly approves a
    vendoring action, perform it *and in the same change* add the entry to `VENDORED.md`
    using the template in references/vendoring.md. A vendoring action without a ledger
    entry is an incomplete action.
 
-## Step 4 — Vendor Ledger Check
+## Step 4: Vendor Ledger Check
 
 The step that makes sure copied-in code is never forgotten.
 
@@ -152,38 +159,47 @@ The step that makes sure copied-in code is never forgotten.
    `${CLAUDE_SKILL_DIR}/scripts/check-vendored.sh <project-root>`.
    It parses each ledger entry and (network permitting) checks the upstream source for
    newer versions and queries the OSV database (api.osv.dev) for known vulnerabilities.
-   Output lines: `ENTRY|name|recorded|latest|osv_hits|status|local|version` plus `OFFLINE`/`NOLEDGER` lines.
+   Output lines: `ENTRY|name|recorded|latest|osv_hits|status|local|version`,
+   `UPSTREAM|name|upstream-path|state` plus `OFFLINE`/`NOLEDGER` lines.
    `status` includes `cve-warning` and is for the **private** report only; `version`
-   (`current` / `update-available` / `unchecked`) is about the upstream version alone.
+   (`current` / `update-available` / `ahead` / `unchecked`) is about the upstream version
+   alone. Versions are compared by number: `ahead` means the copy is newer than the
+   newest release or tag (taken from the default branch), which is not an update.
+   `UPSTREAM` (GitHub sources with an `Upstream-Path`): `identical` = the file at that
+   path on the default branch has the recorded checksum; `differs` = same path, other
+   bytes (another build, or upstream moved on); `missing` = the path does not exist
+   upstream, so the ledger points at the wrong file.
    `local` compares the vendored files with the ledger's `Checksum` (works offline):
-   `modified` = someone changed vendored code after it was recorded — report it as a
+   `modified` = someone changed vendored code after it was recorded - report it as a
    finding unless the entry's `Modifications` field explains it.
 2. Update each entry's `Last-Checked` date and `Status` field in `VENDORED.md`
    (this ledger update is the one file LifeLine is allowed to write besides the report).
    `VENDORED.md` is committed, so write the **`version`** field there, never `status`:
    the ledger must not hint at an open vulnerability. When `version` is `unchecked`
-   (offline, or no upstream the script can read — neither a registry covered by
+   (offline, or no upstream the script can read - neither a registry covered by
    deps.dev nor a GitHub source), leave `Status` and `Last-Checked` as they are; the
    date visibly ages.
-3. Findings: the public **Vendor Tracking** section shows the version status and local
-   integrity only, the same columns for every entry. `cve-warning` entries, their
-   advisory ids and **every** patch proposal go to the sensitive report — a proposal
+3. Findings: the public **Vendor Tracking** section shows the version status, local
+   integrity and upstream copy only, the same columns for every entry. `missing` or
+   `differs` is a 🟡 provenance finding: correct `Source` / `Upstream-Path`, or explain
+   the difference under `Modifications`. `cve-warning` entries, their
+   advisory ids and **every** patch proposal go to the sensitive report - a proposal
    shown publicly for some entries but not others would point at the ones with an open
    vulnerability.
-   **Patch help** — for every `update-available` or `cve-warning` entry run
+   **Patch help** - for every `update-available` or `cve-warning` entry run
    `${CLAUDE_SKILL_DIR}/scripts/upstream-diff.sh <root> <entry> [target-version]`.
    It writes `upstream.diff` (recorded → target) and `local.diff` (recorded → our copy)
    to a temp dir. Read both and propose a concrete patch for the vendored copy: the
    upstream change, adapted around our local changes, written into the sensitive
    report. Show the patch; apply it only with
    approval, and in the same change update `Version`, `Checksum` and `Last-Checked`.
-   Delete the `WORKDIR` it printed once the patch is proposed — it holds downloaded
+   Delete the `WORKDIR` it printed once the patch is proposed - it holds downloaded
    third-party archives.
-4. **Offline**: add to the report — "Vendor check NOT performed (no network).
+4. **Offline**: add to the report - "Vendor check NOT performed (no network).
    Last successful check: <date>." Never silent.
 5. No `VENDORED.md`, but the scan found copied-in third-party code (foreign license
    headers, `vendor/`-style folders outside package management)? Recommend creating the
-   ledger and offer to draft it from what was found — with user approval.
+   ledger and offer to draft it from what was found - with user approval.
 
 ## Report
 
@@ -191,12 +207,12 @@ Everything goes into `LifeLine_Report/` at the project root (create it if missin
 names are always English), laid out in [references/report-format.md](references/report-format.md).
 It is a history, and it is split:
 
-- **public** files — safe to commit: full report, baseline, change reports, timeline,
+- **public** files - safe to commit: full report, baseline, change reports, timeline,
   public snapshots, closed vulnerabilities;
-- **`private/`** — open vulnerabilities, failure impact and backups, secrets and access,
+- **`private/`** - open vulnerabilities, failure impact and backups, secrets and access,
   unpinned deploy/tool paths. **Never committed, never pushed, never published**; the
   customer gets it outside GitHub (USB stick, encrypted e-mail, by hand). The public
-  files say nothing about it — no counts, no hints — except the seal (date + sha256).
+  files say nothing about it - no counts, no hints - except the seal (date + sha256).
 
 On a full run (and on `deps`):
 
@@ -205,15 +221,18 @@ On a full run (and on `deps`):
 2. **Snapshot.** `${CLAUDE_SKILL_DIR}/scripts/snapshot-state.sh <root>` → save as is to
    `private/state/<date>.tsv` (`<date>-2.tsv` for a second run that day). Then
    `snapshot-state.sh --public private/state/<date>.tsv` → `state/<date>.tsv`.
-   Repeat every `# limit:` line in the report's Limits.
-3. **Find the history.** Previous = newest other snapshot, baseline = oldest — public
+   Repeat every `# limit:` and `# note:` line in the report's Limits. If a lock file
+   cannot be read and you build rows by hand, add your explanations as `# note:` lines:
+   a `# limit:` line is only `<lock path> not read … [project: <dir>]`, which tells the
+   comparison scripts that the project was not seen in that run.
+3. **Find the history.** Previous = newest other snapshot, baseline = oldest - public
    snapshots for public reports, private ones for private reports. No `state/` but an
    older report? Migrate it as report-format.md describes (it may hold sensitive items).
 4. **Disclosure.** `${CLAUDE_SKILL_DIR}/scripts/disclosure.sh LifeLine_Report/private/state`:
    `CLOSED` lines may be published (Closed vulnerabilities section); `OPEN` and
    `REOPENED` lines go to the sensitive report only. The public Closed table is
    cumulative: a row written in an earlier run stays even if the script no longer
-   prints it (the advisory came back) — removing it would show that it came back.
+   prints it (the advisory came back) - removing it would show that it came back.
 5. **Sensitive report.** Write `private/sensitive-report.md`, starting with the
    confidentiality notice from report-format.md, verbatim. On the first run also copy it
    to `private/baseline-<date>-sensitive.md`.
@@ -238,26 +257,26 @@ On a full run (and on `deps`):
    `Modifications` line can name an advisory), `sbom.cdx.json` and
    `dependency-report.json` if they were produced. Then grep the same files for the
    sensitive details you wrote into `private/` (backup paths, secret names and what they
-   unlock, bypass flags). Any hit is a bug — move it to `private/` before answering.
+   unlock, bypass flags). Any hit is a bug - move it to `private/` before answering.
 
 Comparisons always come from the snapshots, never from re-reading old Markdown. Never
 overwrite a baseline, a change report or a snapshot. Never commit anything yourself;
 recommend committing the public part, and remind the user how `private/` is delivered.
 
-## After the Report — Output Format Question
+## After the Report: Output Format Question
 
 The person running the skill decides the output format, not the skill. After writing
 the Markdown report, ask exactly one question:
 
 > The report is at `LifeLine_Report/dependency-report.md`. Do you want an additional format?
-> 1. Markdown only — done (default)
-> 2. CycloneDX SBOM (`LifeLine_Report/sbom.cdx.json`) — for security/compliance tooling
-> 3. JSON export (`LifeLine_Report/dependency-report.json`) — for feeding other tools
+> 1. Markdown only - done (default)
+> 2. CycloneDX SBOM (`LifeLine_Report/sbom.cdx.json`) - for security/compliance tooling
+> 3. JSON export (`LifeLine_Report/dependency-report.json`) - for feeding other tools
 
 Use the AskUserQuestion tool if available; otherwise ask in plain text. Generate the
 extra format only after the user chooses it (schemas in references/report-format.md).
 
-## Out of Scope — LifeLine will NOT
+## Out of Scope: LifeLine will NOT
 
 - vendor, remove, upgrade, or pin anything without explicit user approval
 - generate application code or fix findings

@@ -2,7 +2,7 @@
 
 Per-ecosystem instructions for building the dependency inventory. For every ecosystem:
 **preferred path** (the ecosystem's own tool, if installed) and **fallback path**
-(parse manifest/lock files directly — always works, never requires installing anything).
+(parse manifest/lock files directly - always works, never requires installing anything).
 Never install a tool just to run the audit; note its absence in the report instead.
 
 Common rule for all ecosystems: prune `node_modules`, `.git`, `vendor`, `venv`/`.venv`,
@@ -13,11 +13,11 @@ Common rule for all ecosystems: prune `node_modules`, `.git`, `vendor`, `venv`/`
 - **Manifests**: `package.json` (deps in `dependencies`, `devDependencies`,
   `peerDependencies`, `optionalDependencies`). Workspaces field → monorepo, walk packages.
 - **Locks**: `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock` (text, Bun 1.2+),
-  `bun.lockb` (older binary — use manifest).
+  `bun.lockb` (older binary - use manifest).
 - **Preferred**: `npm ls --all --json` (or `pnpm ls -r --json`, `yarn list --json`).
   CVE check if available: `npm audit --json`.
 - **Fallback**: direct deps from `package.json`; transitive count and pinned versions from
-  the lock file (`package-lock.json` is JSON — read `packages` keys).
+  the lock file (`package-lock.json` is JSON - read `packages` keys).
 - **Import patterns**: `import x from 'pkg'`, `require('pkg')`, `import('pkg')`.
   Module is external when it does not start with `./`, `../`, `/`, `#`, or a `paths` alias.
   Scoped packages: `@scope/name` (first two segments). Node builtins (`fs`, `path`,
@@ -32,7 +32,7 @@ Common rule for all ecosystems: prune `node_modules`, `.git`, `vendor`, `venv`/`
 - **Locks**: `poetry.lock`, `uv.lock`, `Pipfile.lock`, fully-pinned `requirements.txt`.
 - **Preferred**: `pip list --format=json` in the project venv; tree: `pipdeptree --json`
   if installed. CVE check if available: `pip-audit`.
-- **Fallback**: parse manifests; `poetry.lock`/`uv.lock` are TOML — `[[package]]` blocks
+- **Fallback**: parse manifests; `poetry.lock`/`uv.lock` are TOML - `[[package]]` blocks
   give the full transitive set with versions.
 - **Import patterns**: `^import pkg`, `^from pkg import`. Map import name → package name
   cautiously (e.g. `import cv2` = `opencv-python`, `import PIL` = `Pillow`); when unsure,
@@ -44,7 +44,7 @@ Common rule for all ecosystems: prune `node_modules`, `.git`, `vendor`, `venv`/`
 - **Manifest**: `go.mod` (`require` blocks; `// indirect` marks transitive).
 - **Lock**: `go.sum`.
 - **Preferred**: `go list -m all`; graph: `go mod graph`.
-- **Fallback**: `go.mod` alone is sufficient — it lists everything with versions.
+- **Fallback**: `go.mod` alone is sufficient - it lists everything with versions.
 - **Import patterns**: quoted paths containing a dot-domain (`"github.com/x/y"`) inside
   `import` statements/blocks. Stdlib (no domain) is not external.
 
@@ -61,11 +61,31 @@ Common rule for all ecosystems: prune `node_modules`, `.git`, `vendor`, `venv`/`
 
 - **Manifests**: `pom.xml` (`<dependencies>`), `build.gradle`/`build.gradle.kts`
   (`implementation`, `api`, `compileOnly`, plugin blocks).
-- **Locks**: `gradle.lockfile` (if lock enabled); Maven has none (versions in pom/parent).
+- **Locks**: `gradle.lockfile` per module and `settings-gradle.lockfile` /
+  `buildscript-gradle.lockfile` (when dependency locking is on); Maven has none
+  (versions in pom/parent).
+- **Snapshot**: `snapshot-state.sh` reads Gradle lock files itself (plain awk, no Gradle
+  needed). Lines are `group:name:version=config1,config2,…`; all lock files of one build
+  (the directory with the settings script) form one project. Scope: a release runtime
+  classpath (`prodReleaseRuntimeClasspath`, `runtimeClasspath` in plain JVM builds)
+  ships to users; debug, test, lint, compiler and plugin classpaths are dev. Direct =
+  named in a `build.gradle(.kts)`, as a version-catalog accessor (`libs.compose.ui`,
+  bundles too, from `gradle/*.versions.toml`) or a literal `"group:name:version"`.
+  Packages a plugin adds (Kotlin's `kotlin-stdlib`, AGP's `viewbinding`) are named
+  nowhere and count as transitive. Locks carry no licences: direct rows get the
+  registry licence from deps.dev, transitive rows stay `-`.
+- **Integrity**: `gradle/verification-metadata.xml` (`--write-verification-metadata
+  sha256`) pins every artifact. Regenerating it over an existing file keeps the entries
+  of replaced versions; delete it first to drop them.
+- **Toolchain** (`TOOLCHAIN` in find-manifests): `gradle/wrapper/gradle-wrapper.properties`
+  should carry `distributionSha256Sum`. `gradle/gradle-daemon-jvm.properties` with
+  `toolchainUrl.*`, the foojay resolver plugin or `org.gradle.java.installations.auto-download`
+  let the build download a JDK without a pinned checksum; Android Studio writes the
+  daemon JVM file back when its Gradle JDK is set to "daemon JVM criteria".
 - **Preferred**: `mvn dependency:tree` / `gradle dependencies` (only if wrapper or tool present).
 - **Fallback**: parse pom/gradle files; note that transitive resolution without the tool
-  is incomplete — say so in the report.
-- **Import patterns**: `import com.foo.bar.Baz;` — map top packages to artifacts where
+  is incomplete; say so in the report.
+- **Import patterns**: `import com.foo.bar.Baz;` - map top packages to artifacts where
   obvious; otherwise report at package-prefix level.
 
 ## .NET
@@ -75,7 +95,7 @@ Common rule for all ecosystems: prune `node_modules`, `.git`, `vendor`, `venv`/`
 - **Lock**: `packages.lock.json` (if enabled).
 - **Preferred**: `dotnet list package --include-transitive`.
 - **Fallback**: csproj parse (XML, trivial).
-- **Import patterns**: `using Namespace;` — map to packages where obvious.
+- **Import patterns**: `using Namespace;` - map to packages where obvious.
 
 ## PHP (Composer)
 
@@ -83,7 +103,7 @@ Common rule for all ecosystems: prune `node_modules`, `.git`, `vendor`, `venv`/`
 - **Lock**: `composer.lock` (full transitive set, JSON).
 - **Preferred**: `composer show --tree`.
 - **Fallback**: `composer.lock` parse.
-- **Import patterns**: `use Vendor\Package\…;` — vendor prefix maps to the package.
+- **Import patterns**: `use Vendor\Package\…;` - vendor prefix maps to the package.
 
 ## Ruby
 
@@ -112,7 +132,7 @@ Common rule for all ecosystems: prune `node_modules`, `.git`, `vendor`, `venv`/`
   `azure-pipelines.yml`, `Jenkinsfile`, `bitbucket-pipelines.yml`.
 - **Extract**: GitHub Actions `uses: owner/action@ref` (ref = branch/tag → unpinned risk;
   full commit SHA → pinned), GitLab `include:`/`image:`, orbs in CircleCI, `curl | bash`
-  or `wget` install lines anywhere in CI (high-risk external fetch — always flag).
+  or `wget` install lines anywhere in CI (high-risk external fetch - always flag).
 
 ## Web Assets (external code too)
 
@@ -129,7 +149,7 @@ Common rule for all ecosystems: prune `node_modules`, `.git`, `vendor`, `venv`/`
 pattern: manifest = declared direct deps, lock = full pinned set, imports = grep the
 language's import syntax. State in the report that the ecosystem was handled generically.
 
-## Import-name ambiguity — honesty rule
+## Import-name ambiguity: honesty rule
 
 When the import name → package mapping is uncertain, or a language's transitive set
 cannot be resolved without its tool, the report must say exactly that in the

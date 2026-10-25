@@ -20,6 +20,21 @@ done
 [ "$(vis "$OLD")" = "$(vis "$NEW")" ] || { echo "ERROR|one snapshot is public, the other private - compare like with like" >&2; exit 2; }
 
 awk -F'\t' '
+  # The project a "# limit:" line says was not read, or "" for a free note. Only the
+  # lines snapshot-state.sh writes about a lock file count: "<lock path> not read ...",
+  # "<lock path> is lockfileVersion 1 ...", "<lock path> not snapshotted ...", optionally
+  # ending in "[project: <dir>]". Any other "# limit:" text, and every "# note:" line,
+  # is a note for the report and blinds nothing.
+  function limitproj(line,   lp, path, base, proj) {
+    lp = substr(line, 10)
+    if (!match(lp, / (not read|is lockfileVersion|not snapshotted)( |$)/)) return ""
+    path = substr(lp, 1, RSTART - 1); base = path; sub(/^.*\//, "", base)
+    if (base !~ /(\.lock|lockfile|-lock\.json|-lock\.yaml|\.lockb|\.lock\.json|go\.sum|\.resolved)$/) return ""
+    proj = ""
+    if (match(lp, /\[project: [^]]*\]$/)) proj = substr(lp, RSTART + 10, RLENGTH - 11)
+    if (proj == "") { proj = path; if (proj ~ /\//) sub(/\/[^\/]*$/, "", proj); else proj = "." }
+    return proj
+  }
   # Days since 0000-03-01 for a YYYY-MM-DD date (portable: no mktime in BSD awk).
   function days(d,   y, m, dd) {
     if (d !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/) return -1
@@ -69,13 +84,8 @@ awk -F'\t' '
   FNR == 1 { side = (++file == 1) ? "o" : "n" }   # by position: the same path may be passed twice
   /^#/ {
     if ($0 ~ /^# generated: /) gen[side] = substr($0, 14)
-    # "# limit: <lock path> ..." - that project was not read in this snapshot.
-    # The path may contain spaces: cut at the message, not at the first space.
-    if ($0 ~ /^# limit: / && $0 !~ /OSV/) {
-      lp = substr($0, 10)
-      if (!sub(/ (not read|is lockfileVersion|not snapshotted)( .*)?$/, "", lp)) sub(/ .*/, "", lp)
-      d = lp; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."; blind[side, d] = 1
-    }
+    # "# limit: <lock path> not read ..." - that project was not read in this snapshot.
+    if ($0 ~ /^# limit: / && (d = limitproj($0)) != "") blind[side, d] = 1
     next
   }
   $1 == "project" { next }

@@ -40,6 +40,19 @@ done
 printf '%s\n' "$@" | awk '{ b = $0; sub(/^.*\//, "", b); sub(/\.tsv$/, "", b); n = split(b, f, "-")
   printf "%s\t%s\t%s\t%s\t%s\n", f[1], f[2], f[3], (n > 3 ? f[4] : 0), $0 }' |
   LC_ALL=C sort -t "$(printf '\t')" -k1,1n -k2,2n -k3,3n -k4,4n | cut -f5 | tr '\n' '\0' | xargs -0 awk -F'\t' '
+  # The project a "# limit:" line says was not read, or "" for a free note (same rule
+  # as diff-state.sh: only "<lock path> not read|is lockfileVersion|not snapshotted ...
+  # [project: <dir>]" lines count; free "# limit:" text and "# note:" lines do not).
+  function limitproj(line,   lp, path, base, proj) {
+    lp = substr(line, 10)
+    if (!match(lp, / (not read|is lockfileVersion|not snapshotted)( |$)/)) return ""
+    path = substr(lp, 1, RSTART - 1); base = path; sub(/^.*\//, "", base)
+    if (base !~ /(\.lock|lockfile|-lock\.json|-lock\.yaml|\.lockb|\.lock\.json|go\.sum|\.resolved)$/) return ""
+    proj = ""
+    if (match(lp, /\[project: [^]]*\]$/)) proj = substr(lp, RSTART + 10, RLENGTH - 11)
+    if (proj == "") { proj = path; if (proj ~ /\//) sub(/\/[^\/]*$/, "", proj); else proj = "." }
+    return proj
+  }
   function days(d,   y, m, dd) {
     y = substr(d, 1, 4) + 0; m = substr(d, 6, 2) + 0; dd = substr(d, 9, 2) + 0
     if (m <= 2) { y--; m += 12 }
@@ -47,15 +60,12 @@ printf '%s\n' "$@" | awk '{ b = $0; sub(/^.*\//, "", b); sub(/\.tsv$/, "", b); n
   }
   FNR == 1 { run++; date[run] = FILENAME; sub(/^.*\//, "", date[run]); sub(/\.tsv$/, "", date[run]); day[run] = substr(date[run], 1, 10); partial[run] = 0 }
   /^# online: no/ { partial[run] = 1; next }
-  # "# limit: <lock path> ..." blinds the project of that lock file; an OSV failure blinds the run.
-  # The path may contain spaces: cut at the message, not at the first space.
+  # "# limit: <lock path> not read ..." blinds the project of that lock file; the OSV
+  # failure line snapshot-state.sh writes blinds the whole run. A free note that merely
+  # mentions OSV ("# note: OSV has no ecosystem for ...") blinds nothing.
   /^# limit: / {
-    if ($0 ~ /OSV/) partial[run] = 1
-    else {
-      lp = substr($0, 10)
-      if (!sub(/ (not read|is lockfileVersion|not snapshotted)( .*)?$/, "", lp)) sub(/ .*/, "", lp)
-      d = lp; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."; blindproj[run, d] = 1
-    }
+    if ($0 ~ /^# limit: OSV batch query failed/) partial[run] = 1
+    else if ((d = limitproj($0)) != "") blindproj[run, d] = 1
     next
   }
   /^#/ || $1 == "project" { next }

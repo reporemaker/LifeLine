@@ -37,6 +37,19 @@ done
 printf '%s\n' "$@" | awk '{ b = $0; sub(/^.*\//, "", b); sub(/\.tsv$/, "", b); n = split(b, f, "-")
   printf "%s\t%s\t%s\t%s\t%s\n", f[1], f[2], f[3], (n > 3 ? f[4] : 0), $0 }' |
   LC_ALL=C sort -t "$(printf '\t')" -k1,1n -k2,2n -k3,3n -k4,4n | cut -f5 | tr '\n' '\0' | xargs -0 awk -F'\t' '
+  # The project a "# limit:" line says was not read, or "" for a free note (same rule
+  # as diff-state.sh: only "<lock path> not read|is lockfileVersion|not snapshotted ...
+  # [project: <dir>]" lines count; free "# limit:" text and "# note:" lines do not).
+  function limitproj(line,   lp, path, base, proj) {
+    lp = substr(line, 10)
+    if (!match(lp, / (not read|is lockfileVersion|not snapshotted)( |$)/)) return ""
+    path = substr(lp, 1, RSTART - 1); base = path; sub(/^.*\//, "", base)
+    if (base !~ /(\.lock|lockfile|-lock\.json|-lock\.yaml|\.lockb|\.lock\.json|go\.sum|\.resolved)$/) return ""
+    proj = ""
+    if (match(lp, /\[project: [^]]*\]$/)) proj = substr(lp, RSTART + 10, RLENGTH - 11)
+    if (proj == "") { proj = path; if (proj ~ /\//) sub(/\/[^\/]*$/, "", proj); else proj = "." }
+    return proj
+  }
   function addset(cur, val,   n, a, i) {
     if (val == "-" || val == "unknown" || val == "") return cur
     if (cur == "") return val
@@ -46,12 +59,8 @@ printf '%s\n' "$@" | awk '{ b = $0; sub(/^.*\//, "", b); sub(/\.tsv$/, "", b); n
   function rank(s) { return s == "direct-runtime" ? 5 : s == "vendored" ? 4 : s == "direct-dev" ? 3 : s == "transitive-runtime" ? 2 : s == "" ? 0 : 1 }
   function put(f, v) { if (v != "-" && v != "unknown" && v != "") val[run, k, f] = v }
   FNR == 1 { run++; date[run] = FILENAME; sub(/^.*\//, "", date[run]); sub(/\.tsv$/, "", date[run]) }
-  # "# limit: <lock path> ..." - that project was not read in this run (path may contain spaces).
-  /^# limit: / && $0 !~ /OSV/ {
-    lp = substr($0, 10)
-    if (!sub(/ (not read|is lockfileVersion|not snapshotted)( .*)?$/, "", lp)) sub(/ .*/, "", lp)
-    d = lp; if (d ~ /\//) sub(/\/[^\/]*$/, "", d); else d = "."; blind[run, d] = 1; next
-  }
+  # "# limit: <lock path> not read ..." - that project was not read in this run.
+  /^# limit: / { if ((d = limitproj($0)) != "") blind[run, d] = 1; next }
   /^#/ || $1 == "project" { next }
   {
     k = $1 SUBSEP $3 SUBSEP ($5 == "vendored" ? "v" : "p"); keys[k] = 1; seen[run, k] = 1

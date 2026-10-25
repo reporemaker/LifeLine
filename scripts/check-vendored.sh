@@ -3,15 +3,25 @@
 # Usage: check-vendored.sh [project-root]
 #        check-vendored.sh --hash <project-root> <location>   checksum for a new entry
 # Output lines:
-#   NOLEDGER|<path>                                    no ledger file — nothing to check
+#        check-vendored.sh --compare <recorded> <latest>      version verdict only (tests)
+# Output lines:
+#   NOLEDGER|<path>                                    no ledger file - nothing to check
 #   OFFLINE|<reason>                                   remote checks skipped, say so in the report
 #   ENTRY|name|recorded|latest-upstream|osv-hits|status|local|version
+#   UPSTREAM|name|upstream-path|identical|differs|missing|unchecked
+#       GitHub-sourced file entries with an Upstream-Path only: is the file at that path
+#       on the default branch byte-identical to the recorded Checksum? "missing" = the
+#       recorded path does not exist upstream (the ledger points at the wrong file).
 #   HASH|<location>|sha256:<hex>                       (--hash mode)
 # status: current | update-available | cve-warning | unchecked
 #   current   = every check that applies to the entry ran and found nothing
 #   unchecked = offline, or a check that applies could not run (no registry identity
 #               and no GitHub Source, OSV request failed) - never reported as current
-# version: current | update-available | unchecked  - upstream version only, never CVEs.
+# version: current | update-available | ahead | unchecked  - upstream version only, never CVEs.
+#   Compared by number, not by string: "v7.222" against a recorded "9.000" is "ahead"
+#   (the copy is newer than the newest release or tag, e.g. taken from the default
+#   branch), not an update. A pre-release recorded against its final release
+#   ("1.0.0-rc1" vs "1.0.0") is an update.
 #   This is the only status written to VENDORED.md: the ledger is committed, so it must
 #   not hint at open vulnerabilities. `status` (with cve-warning) goes to the private
 #   report only.
@@ -47,6 +57,27 @@ location_hash() {
   fi
 }
 
+# Upstream version verdict for a recorded version: current | update-available | ahead.
+# Numbers are compared piece by piece; a leading "v" and the build suffix are ignored.
+version_verdict() {
+  awk -v r="${1#v}" -v l="${2#v}" 'BEGIN {
+    if (r == l) { print "current"; exit }
+    cr = r; sub(/[-+].*/, "", cr); cl = l; sub(/[-+].*/, "", cl)
+    nr = split(cr, x, /[^0-9]+/); nl = split(cl, y, /[^0-9]+/); n = nr > nl ? nr : nl
+    for (i = 1; i <= n; i++) {
+      if (x[i] + 0 < y[i] + 0) { print "update-available"; exit }
+      if (x[i] + 0 > y[i] + 0) { print "ahead"; exit }
+    }
+    # Same numbers, different text: a pre-release against its release, or a renamed tag.
+    print (r ~ /-/ && l !~ /-/) ? "update-available" : (r !~ /-/ && l ~ /-/) ? "ahead" : "current"
+  }'
+}
+
+if [ "${1:-}" = "--compare" ]; then
+  [ $# -eq 3 ] || { echo "usage: check-vendored.sh --compare <recorded> <latest>" >&2; exit 2; }
+  version_verdict "$2" "$3"; exit 0
+fi
+
 if [ "${1:-}" = "--hash" ]; then
   [ $# -eq 3 ] || { echo "usage: check-vendored.sh --hash <project-root> <location>" >&2; exit 2; }
   h=$(cd "$2" 2>/dev/null && location_hash "$3") || { echo "ERROR|cannot hash $3" >&2; exit 1; }
@@ -59,7 +90,9 @@ LEDGER="$ROOT/VENDORED.md"
 [ -f "$LEDGER" ] || { echo "NOLEDGER|$LEDGER"; exit 0; }
 
 NET=1
-if command -v curl >/dev/null 2>&1; then
+if [ "${LIFELINE_OFFLINE:-0}" = 1 ]; then
+  NET=0
+elif command -v curl >/dev/null 2>&1; then
   curl -s --max-time 6 -o /dev/null "https://api.osv.dev" 2>/dev/null || NET=0
 else
   NET=0
@@ -79,8 +112,9 @@ depsdev_system() {
 urlenc() { printf '%s' "$1" | sed 's/%/%25/g; s/@/%40/g; s|/|%2F|g; s/:/%3A/g; s/ /%20/g'; }
 
 awk '
-  function flush() { if (name != "") print name "|" eco "|" pkg "|" ver "|" src "|" loc "|" sum }
-  /^## /   { flush(); name = substr($0, 4); eco = ""; pkg = ""; ver = ""; src = ""; loc = ""; sum = "" }
+  function flush() { if (name != "") print name "|" eco "|" pkg "|" ver "|" src "|" loc "|" sum "|" upath }
+  /^## /   { flush(); name = substr($0, 4); eco = ""; pkg = ""; ver = ""; src = ""; loc = ""; sum = ""; upath = "" }
+  /^- Upstream-Path:/ { sub(/^- Upstream-Path:[ \t]*/, ""); sub(/[ \t]+#.*$/, ""); upath = $0 }
   /^- Location:/     { sub(/^- Location:[ \t]*/, "");     sub(/[ \t]+#.*$/, ""); loc = $0 }
   /^- Checksum:/     { sub(/^- Checksum:[ \t]*/, "");     sub(/[ \t]+#.*$/, ""); sum = $0 }
   /^- Source:/       { sub(/^- Source:[ \t]*/, "");       sub(/[ \t]+#.*$/, ""); src = $0 }
@@ -88,13 +122,17 @@ awk '
   /^- Package-Name:/ { sub(/^- Package-Name:[ \t]*/, ""); sub(/[ \t]+#.*$/, ""); pkg = $0 }
   /^- Version:/      { sub(/^- Version:[ \t]*/, "");      sub(/[ \t]+#.*$/, ""); ver = $0 }
   END { flush() }
-' "$LEDGER" | while IFS='|' read -r name eco pkg ver src loc sum; do
+' "$LEDGER" | while IFS='|' read -r name eco pkg ver src loc sum upath; do
   [ -z "$name" ] && continue
 
-  # --- OSV vulnerability lookup (only for registry-identified entries) ---
+  # --- OSV vulnerability lookup (only for entries in an ecosystem OSV covers; for a
+  # GitHub repo or a file with no registry identity the check does not apply) ---
   osv=0
   osv_ok=1
-  if [ -n "$pkg" ] && [ "$pkg" != "none" ] && [ -n "$eco" ] && [ "$eco" != "none" ]; then
+  case " npm PyPI Maven Go crates.io NuGet RubyGems Packagist Pub Hex " in
+    *" $eco "*) osv_eco=1 ;; *) osv_eco=0 ;;
+  esac
+  if [ "$osv_eco" -eq 1 ] && [ -n "$pkg" ] && [ "$pkg" != "none" ]; then
     osv_ok=0
     if [ "$NET" -eq 1 ]; then
       body=$(printf '{"package":{"name":"%s","ecosystem":"%s"},"version":"%s"}' \
@@ -136,10 +174,13 @@ awk '
       ;;
   esac
 
+  version_state=unchecked
+  [ -n "$latest" ] && version_state=$(version_verdict "$ver" "$latest")
+
   # --- Verdict: a finding wins; "current" only when every applicable check ran ---
   if [ "${osv:-0}" -gt 0 ]; then
     status="cve-warning"
-  elif [ -n "$latest" ] && [ "${latest#v}" != "${ver#v}" ]; then
+  elif [ "$version_state" = update-available ]; then
     status="update-available"
   elif [ "$NET" -eq 1 ] && [ "$osv_ok" -eq 1 ] && [ -n "$latest" ]; then
     status="current"
@@ -160,10 +201,26 @@ awk '
     local_state=unknown
   fi
 
-  if [ -z "$latest" ]; then version_state=unchecked
-  elif [ "${latest#v}" = "${ver#v}" ]; then version_state=current
-  else version_state=update-available
-  fi
-
   echo "ENTRY|$name|$ver|${latest:-unknown}|${osv:-0}|$status|$local_state|$version_state"
+
+  # --- Upstream copy: does the recorded Upstream-Path still hold these bytes? ---
+  case "$src" in
+    *github.com/*)
+      if [ -n "$upath" ] && [ -n "$loc" ] && [ -f "$ROOT/$loc" ]; then
+        up=unchecked
+        ownerrepo=$(printf '%s' "$src" | sed -E 's|.*github\.com/([^/ ]+/[^/ ]+).*|\1|; s|\.git$||')
+        if [ "$NET" -eq 1 ] && [ -n "$ownerrepo" ] && [ -n "$sum" ]; then
+          tmpf=$(mktemp "${TMPDIR:-/tmp}/lifeline-up.XXXXXX")
+          code=$(curl -sL --max-time 20 -o "$tmpf" -w '%{http_code}' \
+            "https://raw.githubusercontent.com/$ownerrepo/HEAD/$upath" 2>/dev/null) || code=000
+          case "$code" in
+            200) [ "sha256:$(sha_stdin < "$tmpf")" = "$sum" ] && up=identical || up=differs ;;
+            404) up=missing ;;
+          esac
+          rm -f "$tmpf"
+        fi
+        echo "UPSTREAM|$name|$upath|$up"
+      fi
+      ;;
+  esac
 done

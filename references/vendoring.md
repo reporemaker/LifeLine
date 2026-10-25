@@ -1,6 +1,6 @@
 # Vendoring Reference
 
-Rules for recommending, executing (only with user approval), and recording vendoring —
+Rules for recommending, executing (only with user approval), and recording vendoring:
 moving external code into the repo to remove an outside dependence.
 
 ## Candidate profile
@@ -9,12 +9,12 @@ A dependency is a vendoring candidate when **most** of these hold:
 
 | Signal | Threshold |
 |---|---|
-| Size | Under ≈ 500 lines actually needed — the *reachable* figure from `measure-package.sh`, not the package total |
+| Size | Under ≈ 500 lines actually needed - the *reachable* figure from `measure-package.sh`, not the package total |
 | API usage | The project uses a small fraction of the package (`used-api.sh`) |
-| Weight | Bonus: it pulls in other packages (`measure-package.sh` transitive count) — dropping it removes those too |
+| Weight | Bonus: it pulls in other packages (`measure-package.sh` transitive count) - dropping it removes those too |
 | Upstream health | Unmaintained (>2y no release), archived, or single-maintainer |
-| Change rate | Stable — code that rarely needs updates loses little by leaving upstream |
-| Security surface | Low — pure logic, no parsing of untrusted input, no crypto, no network |
+| Change rate | Stable - code that rarely needs updates loses little by leaving upstream |
+| Security surface | Low - pure logic, no parsing of untrusted input, no crypto, no network |
 
 **Never a candidate**: frameworks, crypto libraries, anything parsing untrusted input
 (those need upstream security patches), packages under copyleft licenses (below).
@@ -22,31 +22,31 @@ A dependency is a vendoring candidate when **most** of these hold:
 **Before vendoring, check [replacements.md](replacements.md).** If the runtime has a
 built-in for it, deleting the dependency beats copying it.
 
-## License gate — MANDATORY, runs before any recommendation
+## License gate: MANDATORY, runs before any recommendation
 
 | License | Verdict |
 |---|---|
 | MIT, BSD, ISC, Apache-2.0, Zlib, Unlicense/CC0, WTFPL, BlueOak-1.0.0 | ✅ Vendorable. Attribution required: keep the original license header/file with the copied code. Apache-2.0 additionally: keep NOTICE if present. |
 | OFL-1.1 (fonts) | ✅ Vendorable, also as part of a website or app. Keep the OFL text next to the font files; a modified font must not use the Reserved Font Name. |
-| MPL-2.0, EPL | ⚠️ File-level copyleft — vendorable but modified files must stay under the original license. Flag clearly; recommend only if the user understands. |
-| LGPL-2.1/3.0 | ⚠️ Copyleft on the library itself: the copy stays LGPL and users must be able to replace it. A slice copied into the project's own source and bundled with it rarely meets that — do not recommend vendoring; pin or fork instead. |
+| MPL-2.0, EPL | ⚠️ File-level copyleft - vendorable but modified files must stay under the original license. Flag clearly; recommend only if the user understands. |
+| LGPL-2.1/3.0 | ⚠️ Copyleft on the library itself: the copy stays LGPL and users must be able to replace it. A slice copied into the project's own source and bundled with it rarely meets that - do not recommend vendoring; pin or fork instead. |
 | GPL-2.0/3.0, AGPL, SSPL, EUPL | ❌ Do NOT recommend vendoring. Copying this code into the project can impose the license on the whole project. State this risk explicitly in the report. |
 | No license / unknown | ❌ Do NOT recommend. No license = no right to copy. Suggest contacting the author or finding an alternative. |
 
-## The trade-off — always state it
+## The trade-off: always state it
 
 Vendored code **stops receiving upstream patches**. A CVE published after vendoring will
-not arrive via `npm audit`/Dependabot — nothing watches copied code except the LifeLine
+not arrive via `npm audit`/Dependabot - nothing watches copied code except the LifeLine
 ledger. Every vendoring recommendation must carry this sentence in substance:
 *"After vendoring, VENDORED.md + LifeLine's Step 4 is the only thing standing between
 this code and silent rot."*
 
-## Alternatives — present alongside every candidate
+## Alternatives: present alongside every candidate
 
-1. **Pin** — exact version + lock file. Cheapest; upstream risk remains but is frozen.
-2. **Fork** under the user's org — upstream disappears, your copy survives; you can still
+1. **Pin** - exact version + lock file. Cheapest; upstream risk remains but is frozen.
+2. **Fork** under the user's org - upstream disappears, your copy survives; you can still
    merge upstream fixes. Middle ground.
-3. **Rewrite** — for micro-packages, writing the needed few lines yourself is often
+3. **Rewrite** - for micro-packages, writing the needed few lines yourself is often
    cleaner than vendoring: no license baggage, no ledger entry, one less external thing.
 
 ## Vendor only what is used
@@ -58,19 +58,19 @@ The goal is the smallest copy that keeps today's behaviour, not a mirror of the 
 3. In those files, start from the used exports and follow what they call inside the
    package: helper functions, constants, internal requires. Stop at what is not reached.
 4. Copy that slice. Keep the package's structure where it helps a later diff (same file
-   names), or one file when the slice is small — then record `Upstream-Path`.
+   names), or one file when the slice is small - then record `Upstream-Path`.
 5. Run the project's tests. A slice that breaks a test was cut too thin.
 6. Say in the report what was left out ("copied 52 of 210 lines: `leftPad`, cache table;
    left out: typings, benchmarks").
 
-## Executing an approved vendoring (user said yes — only then)
+## Executing an approved vendoring (user said yes: only then)
 
 1. Copy only what is needed (above), into a clearly marked location (e.g. `src/vendor/<name>/`).
 2. Keep the original license text with the code (header comment or LICENSE file alongside).
 3. Point the project's imports at the copy (`from 'left-pad'` → `from './vendor/left-pad.js'`).
 4. Record the checksum: `check-vendored.sh --hash <root> <location>` → the `Checksum` value.
 5. **In the same change**, add the ledger entry to `VENDORED.md` (template below).
-   A vendoring action without a ledger entry is an incomplete action — never skip this.
+   A vendoring action without a ledger entry is an incomplete action - never skip this.
 6. Remove the original dependency from the manifest (with user approval) and note the
    replacement in the report.
 
@@ -78,10 +78,10 @@ The goal is the smallest copy that keeps today's behaviour, not a mirror of the 
 
 Vendored code may be changed on purpose (a bug fix, a backported patch). Every change
 needs, in the same commit: a line in `Modifications`, and a fresh `Checksum`. A
-checksum mismatch without a `Modifications` note is reported as a 🔴 finding —
+checksum mismatch without a `Modifications` note is reported as a 🔴 finding:
 nobody can tell a deliberate fix from an accident, or from tampering.
 
-## Patch help — when upstream moves
+## Patch help: when upstream moves
 
 For an entry that is `update-available` or `cve-warning`. Everything below goes into the
 sensitive report, for every entry, so the public report cannot single out the ones with an
@@ -94,13 +94,13 @@ open vulnerability:
 4. Show the resulting patch. With approval: apply, run tests, update `Version`,
    `Checksum`, `Last-Checked`, and add a `Modifications` line if our changes were kept.
 
-## VENDORED.md — ledger template
+## VENDORED.md: ledger template
 
 Lives at the project root. One `## <name>` section per vendored item. Field lines are
-machine-parsed by `scripts/check-vendored.sh` — keep the exact `- Key: value` format.
+machine-parsed by `scripts/check-vendored.sh` - keep the exact `- Key: value` format.
 
 ```markdown
-# VENDORED.md — Vendored Code Ledger
+# VENDORED.md: Vendored Code Ledger
 
 Code copied into this repo from outside. Every entry is checked for upstream updates
 and CVEs by the LifeLine skill (Step 4). Do not remove entries whose code still exists.
@@ -125,21 +125,24 @@ and CVEs by the LifeLine skill (Step 4). Do not remove entries whose code still 
 Field notes:
 - `Ecosystem` / `Package-Name`: registry identity for OSV queries (`npm`, `PyPI`,
   `crates.io`, `Go`, `Maven`, `Packagist`, `RubyGems`, `NuGet`). Use `none` when the code
-  never lived in a registry (a gist, a blog snippet) — OSV check is skipped, upstream
+  never lived in a registry (a gist, a blog snippet) - OSV check is skipped, upstream
   check still runs against `Source`. Without a registry identity the upstream check
   understands GitHub sources only; any other `Source` comes back `unchecked`, and the
   report says so.
-- `Version`: registry version or upstream commit hash — whatever was actually copied.
+- `Version`: registry version or upstream commit hash - whatever was actually copied.
 - `Location`: file or folder, relative to the project root.
 - `Upstream-Path`: where `Location` came from inside the package, when the names differ
-  (`left-pad.js` ← `index.js`). Lets `upstream-diff.sh` pair the files.
+  (`left-pad.js` ← `index.js`). Lets `upstream-diff.sh` pair the files. For a GitHub
+  `Source` it is a path on the default branch, and Step 4 checks that the file there
+  still has the recorded checksum (`UPSTREAM` line): record the path the bytes really
+  came from, or say under `Modifications` how the copy differs (another build, renamed).
 - `Checksum`: `sha256:` of `Location` from `check-vendored.sh --hash`. Step 4 compares it
   on every run, offline too.
 - `Modifications`: `none`, or one line per deliberate change (date · what · why).
-- `Status`: `current` | `update-available` — the **upstream version** status, written by
+- `Status`: `current` | `update-available` | `ahead` - the **upstream version** status, written by
   Step 4 from the `version` field of `check-vendored.sh`. Never `cve-warning`: this file
   is committed, and an open vulnerability must not be hinted at in it; vulnerability
-  status lives in the private report only. `unchecked` is never written — the last known
+  status lives in the private report only. `unchecked` is never written - the last known
   status stays.
 - `Last-Checked`: updated by Step 4 on every successful check. If the project has no
-  network, the date visibly ages — that is the feature.
+  network, the date visibly ages - that is the feature.
